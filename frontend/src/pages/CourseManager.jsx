@@ -22,7 +22,7 @@ export default function CourseManager() {
     try {
       const token = localStorage.getItem('token');
       // On utilise import.meta.env.VITE_API_URL pour pointer vers Railway ou localhost
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
       const response = await axios.get(`${apiUrl}/courses/${courseId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -32,7 +32,8 @@ export default function CourseManager() {
       }
     } catch (error) {
       console.error("Erreur de chargement", error);
-      navigate('/instructor');
+      alert("Erreur de chargement du cours : " + (error.response?.data?.message || error.message));
+      // On enlève le navigate pour rester sur la page et voir ce qui cloche
     }
   };
 
@@ -46,7 +47,7 @@ export default function CourseManager() {
     setIsProcessing(true);
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
       
       if (editingLessonId) {
         await axios.put(`${apiUrl}/courses/${courseId}/lessons/${editingLessonId}`, newLesson, { headers: { Authorization: `Bearer ${token}` } });
@@ -75,7 +76,7 @@ export default function CourseManager() {
     if (!window.confirm("Supprimer cette leçon ?")) return;
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
       await axios.delete(`${apiUrl}/courses/${courseId}/lessons/${lessonId}`, { headers: { Authorization: `Bearer ${token}` } });
       fetchCourse();
     } catch (error) {
@@ -88,7 +89,7 @@ export default function CourseManager() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
       await axios.put(`${apiUrl}/courses/${courseId}`, editCourseData, { headers: { Authorization: `Bearer ${token}` } });
       alert("Formation mise à jour !");
       setIsEditingCourse(false);
@@ -102,7 +103,7 @@ export default function CourseManager() {
     if (!window.confirm("⚠️ DANGER : Supprimer TOUTE la formation ?")) return;
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
       await axios.delete(`${apiUrl}/courses/${courseId}`, { headers: { Authorization: `Bearer ${token}` } });
       navigate('/instructor');
     } catch (error) {
@@ -115,7 +116,7 @@ export default function CourseManager() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
       
       // On groupe les options dans un tableau en enlevant les cases vides
       const options = [questionData.opt1, questionData.opt2, questionData.opt3].filter(o => o.trim() !== '');
@@ -141,7 +142,7 @@ export default function CourseManager() {
     if(!window.confirm("Supprimer cette question ?")) return;
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
       await axios.delete(`${apiUrl}/courses/${courseId}/lessons/${editingLessonId}/questions/${questionId}`, { headers: { Authorization: `Bearer ${token}` } });
       fetchCourse();
     } catch (error) {
