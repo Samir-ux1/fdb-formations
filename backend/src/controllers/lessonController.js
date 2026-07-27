@@ -125,8 +125,8 @@ exports.addQuestion = async (req, res) => {
     const newQuestion = await prisma.question.create({
       data: {
         questionText,
-        options, // ex: ["Paris", "Londres", "Madrid"]
-        correctAnswer: parseInt(correctAnswer), // ex: 0
+        options, 
+        correctAnswer: parseInt(correctAnswer), 
         lessonId
       }
     });
