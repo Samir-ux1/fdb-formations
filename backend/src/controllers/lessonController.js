@@ -115,3 +115,35 @@ exports.toggleProgress = async (req, res) => {
     res.status(500).json({ message: "Erreur serveur.", error: error.message });
   }
 };
+
+// --- AJOUTER UNE QUESTION À UN QUIZ ---
+exports.addQuestion = async (req, res) => {
+  try {
+    const lessonId = parseInt(req.params.lessonId);
+    const { questionText, options, correctAnswer } = req.body;
+
+    const newQuestion = await prisma.question.create({
+      data: {
+        questionText,
+        options, // ex: ["Paris", "Londres", "Madrid"]
+        correctAnswer: parseInt(correctAnswer), // ex: 0
+        lessonId
+      }
+    });
+
+    res.status(201).json({ message: "Question ajoutée !", question: newQuestion });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur.", error: error.message });
+  }
+};
+
+// --- SUPPRIMER UNE QUESTION ---
+exports.deleteQuestion = async (req, res) => {
+  try {
+    const questionId = parseInt(req.params.questionId);
+    await prisma.question.delete({ where: { id: questionId } });
+    res.status(200).json({ message: "Question supprimée." });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur.", error: error.message });
+  }
+};

@@ -153,11 +153,9 @@ exports.getCourseById = async (req, res) => {
       include: {
         lessons: {
           orderBy: { order: 'asc' },
-          // NOUVEAU : On vérifie si l'utilisateur connecté a terminé ces leçons
           include: {
-            progresses: {
-              where: { userId: userId }
-            }
+            progresses: { where: { userId: userId } },
+            questions: true // <-- NOUVEAU : On inclut les questions du quiz !
           }
         },
         instructor: { select: { name: true } }

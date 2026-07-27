@@ -26,7 +26,7 @@ export default function InstructorPortal() {
 
   const fetchInstructorCourses = async (token) => {
     try {
-      const response = await axios.get('https://fdb-formations-production.up.railway.app/api/courses/instructor-courses', {
+      const response = await axios.get(import.meta.env.VITE_API_URL + '/courses/instructor-courses', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCourses(response.data);
@@ -39,7 +39,7 @@ export default function InstructorPortal() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post('https://fdb-formations-production.up.railway.app/api/courses', newCourse, {
+      await axios.post(import.meta.env.VITE_API_URL + '/courses', newCourse, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setIsCreating(false);

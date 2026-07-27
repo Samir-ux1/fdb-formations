@@ -17,7 +17,7 @@ export default function Catalog() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await axios.get('https://fdb-formations-production.up.railway.app/api/courses');
+        const response = await axios.get(import.meta.env.VITE_API_URL + '/courses');
         setCourses(response.data);
       } catch (error) {
         console.error("Erreur lors de la récupération des formations", error);

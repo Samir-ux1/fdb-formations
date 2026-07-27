@@ -24,6 +24,10 @@ router.put('/:courseId/lessons/:lessonId', verifyToken, isInstructor, lessonCont
 
 router.delete('/:courseId/lessons/:lessonId', verifyToken, isInstructor, lessonController.deleteLesson);
 
+// Routes pour les Quiz (Questions)
+router.post('/:courseId/lessons/:lessonId/questions', verifyToken, isInstructor, lessonController.addQuestion);
+router.delete('/:courseId/lessons/:lessonId/questions/:questionId', verifyToken, isInstructor, lessonController.deleteQuestion);
+
 // Nouvelle Route : Débloquer une formation (avec la clé)
 router.post('/:courseId/unlock', verifyToken, courseController.unlockCourse);
 

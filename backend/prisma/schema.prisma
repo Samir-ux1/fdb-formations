@@ -64,6 +64,9 @@ model Lesson {
   courseId  Int
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   progresses       LessonProgress[]
+
+  questions  Question[] 
+
 }
 
 // 4. Table des inscriptions (Qui achète/suit quelle formation)
@@ -94,4 +97,15 @@ model LessonProgress {
 
   // Un utilisateur ne peut terminer une leçon qu'une seule fois
   @@unique([userId, lessonId])
+}
+
+// 6. Table des Questions (Pour les Quiz)
+model Question {
+  id            Int      @id @default(autoincrement())
+  questionText  String
+  options       String[] // Un tableau qui contiendra les choix (ex: ["A", "B", "C"])
+  correctAnswer Int      // Le numéro de la bonne réponse (0 pour A, 1 pour B, etc.)
+
+  lessonId      Int
+  lesson        Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 }
