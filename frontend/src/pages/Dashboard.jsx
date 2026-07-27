@@ -22,7 +22,7 @@ export default function Dashboard() {
 
     const fetchMyCourses = async () => {
       try {
-        const response = await axios.get(import.meta.env.VITE_API_URL + '/courses/my-courses', {
+        const response = await axios.get('https://fdb-formations-production.up.railway.app/api/courses/my-courses', {
           headers: { Authorization: `Bearer ${token}` }
         });
         

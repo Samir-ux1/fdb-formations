@@ -132,7 +132,8 @@ export default function CourseManager() {
       setQuestionData({ questionText: '', opt1: '', opt2: '', opt3: '', correctAnswer: '0' });
       fetchCourse();
     } catch (error) {
-      alert("Erreur lors de l'ajout de la question.");
+      console.error(error);
+      alert("Erreur : " + (error.response?.data?.message || error.message));
     }
   };
 
@@ -144,7 +145,8 @@ export default function CourseManager() {
       await axios.delete(`${apiUrl}/courses/${courseId}/lessons/${editingLessonId}/questions/${questionId}`, { headers: { Authorization: `Bearer ${token}` } });
       fetchCourse();
     } catch (error) {
-      alert("Erreur de suppression.");
+      console.error(error);
+      alert("Erreur : " + (error.response?.data?.message || error.message));
     }
   };
 

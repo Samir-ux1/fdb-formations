@@ -23,7 +23,7 @@ export default function Login() {
     try {
       if (isLogin) {
         // --- 1. LOGIQUE DE CONNEXION ---
-        const response = await axios.post(import.meta.env.VITE_API_URL + '/auth/login', {
+        const response = await axios.post('https://fdb-formations-production.up.railway.app/api/auth/login', {
           email,
           password
         });
@@ -38,7 +38,7 @@ export default function Login() {
 
       } else {
         // --- 2. LOGIQUE D'INSCRIPTION ---
-        await axios.post(import.meta.env.VITE_API_URL + '/auth/register', {
+        await axios.post('https://fdb-formations-production.up.railway.app/api/auth/register', {
           name,
           email,
           password,
