@@ -11,13 +11,21 @@ datasource db {
 // 1. Table Utilisateurs (Étudiants et Instructeurs)
 model User {
   id        Int      @id @default(autoincrement())
-  name      String
+  name      String   
+  
+  firstName String?  
+  lastName  String?  
+  birthDate String?  
+  phone     String?  
+  
+  // NOUVEAU : Photo de profil
+  avatarUrl String?
+
   email     String   @unique
   password  String
-  role      Role     @default(STUDENT) // Par défaut, un inscrit est un étudiant
+  role      Role     @default(STUDENT)
   createdAt DateTime @default(now())
 
-  // Relations (Liens avec les autres tables)
   coursesCreated Course[]     @relation("InstructorCourses")
   enrollments    Enrollment[]
   lessonProgresses LessonProgress[]

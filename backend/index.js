@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const userRoutes = require('./src/routes/userRoutes');
 require('dotenv').config();
 
 // Initialisation de l'application
@@ -16,6 +17,7 @@ const courseRoutes = require('./src/routes/courseRoutes');
 // Utilisation des routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api/users', userRoutes);
 
 // Route de test
 app.get('/', (req, res) => {
