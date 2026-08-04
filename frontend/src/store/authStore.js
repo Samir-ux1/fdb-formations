@@ -15,7 +15,9 @@ export const useAuthStore = create(
       
       logout: () => set({ user: null, token: null, lastCourseId: null }),
       
-      setLastCourseId: (courseId) => set({ lastCourseId: courseId })
+      setLastCourseId: (courseId) => set({ lastCourseId: courseId }),
+
+      updateUser: (updatedUser) => set({ user: updatedUser })
     }),
     {
       name: 'fdb-auth-storage', // Le nom de la clé dans le navigateur

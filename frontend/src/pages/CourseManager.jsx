@@ -16,13 +16,13 @@ export default function CourseManager() {
   const [editCourseData, setEditCourseData] = useState({ title: '', description: '', accessKey: '', imageUrl: '' });
 
   // --- ÉTATS POUR LE QUIZ ---
-  const [questionData, setQuestionData] = useState({ questionText: '', opt1: '', opt2: '', opt3: '', correctAnswer: '0' });
+  const [questionData, setQuestionData] = useState({ questionText: '', opt1: '', opt2: '', opt3: '', correctAnswer: '0', passingScore: 70 });
 
   const fetchCourse = async () => {
     try {
       const token = localStorage.getItem('token');
       // On utilise import.meta.env.VITE_API_URL pour pointer vers Railway ou localhost
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       const response = await axios.get(`${apiUrl}/courses/${courseId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -47,7 +47,7 @@ export default function CourseManager() {
     setIsProcessing(true);
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       
       if (editingLessonId) {
         await axios.put(`${apiUrl}/courses/${courseId}/lessons/${editingLessonId}`, newLesson, { headers: { Authorization: `Bearer ${token}` } });
@@ -76,7 +76,7 @@ export default function CourseManager() {
     if (!window.confirm("Supprimer cette leçon ?")) return;
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       await axios.delete(`${apiUrl}/courses/${courseId}/lessons/${lessonId}`, { headers: { Authorization: `Bearer ${token}` } });
       fetchCourse();
     } catch (error) {
@@ -89,7 +89,7 @@ export default function CourseManager() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       await axios.put(`${apiUrl}/courses/${courseId}`, editCourseData, { headers: { Authorization: `Bearer ${token}` } });
       alert("Formation mise à jour !");
       setIsEditingCourse(false);
@@ -103,7 +103,7 @@ export default function CourseManager() {
     if (!window.confirm("⚠️ DANGER : Supprimer TOUTE la formation ?")) return;
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       await axios.delete(`${apiUrl}/courses/${courseId}`, { headers: { Authorization: `Bearer ${token}` } });
       navigate('/instructor');
     } catch (error) {
@@ -116,7 +116,7 @@ export default function CourseManager() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       
       // On groupe les options dans un tableau en enlevant les cases vides
       const options = [questionData.opt1, questionData.opt2, questionData.opt3].filter(o => o.trim() !== '');
@@ -142,7 +142,7 @@ export default function CourseManager() {
     if(!window.confirm("Supprimer cette question ?")) return;
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://fdb-formations-production.up.railway.app/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       await axios.delete(`${apiUrl}/courses/${courseId}/lessons/${editingLessonId}/questions/${questionId}`, { headers: { Authorization: `Bearer ${token}` } });
       fetchCourse();
     } catch (error) {
@@ -314,7 +314,22 @@ export default function CourseManager() {
               <div><label className="block text-sm font-bold mb-1">Titre</label><input type="text" value={editCourseData.title} onChange={e => setEditCourseData({...editCourseData, title: e.target.value})} className="w-full px-4 py-2 border rounded-xl" required /></div>
               <div><label className="block text-sm font-bold mb-1">Description</label><textarea value={editCourseData.description} onChange={e => setEditCourseData({...editCourseData, description: e.target.value})} className="w-full px-4 py-2 border rounded-xl h-24" required /></div>
               <div><label className="block text-sm font-bold mb-1">Clé Secrète</label><input type="text" value={editCourseData.accessKey} onChange={e => setEditCourseData({...editCourseData, accessKey: e.target.value})} className="w-full px-4 py-2 border rounded-xl uppercase" required /></div>
-              <div><label className="block text-sm font-bold mb-1">Image (URL)</label><input type="url" value={editCourseData.imageUrl} onChange={e => setEditCourseData({...editCourseData, imageUrl: e.target.value})} className="w-full px-4 py-2 border rounded-xl" /></div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Lien de l'image (URL)</label>
+                <input type="url" value={editCourseData.imageUrl} onChange={e => setEditCourseData({...editCourseData, imageUrl: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none" />
+              </div>
+
+              {/* ⬇️ COLONNE À COLLER EXACTEMENT ICI ⬇️ */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Seuil de validation (%)</label>
+                <input 
+                  type="number" min="0" max="100"
+                  value={editCourseData.passingScore} 
+                  onChange={e => setEditCourseData({...editCourseData, passingScore: parseInt(e.target.value)})} 
+                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none" required 
+                />
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setIsEditingCourse(false)} className="w-1/2 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl">Annuler</button>
                 <button type="submit" className="w-1/2 py-3 bg-blue-600 text-white font-bold rounded-xl">Sauvegarder</button>

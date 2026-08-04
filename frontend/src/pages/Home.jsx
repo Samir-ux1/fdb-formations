@@ -46,7 +46,7 @@ export default function Home() {
 
     const fetchCourses = async () => {
       try {
-        const response = await axios.get('https://fdb-formations-production.up.railway.app/api/courses');
+        const response = await axios.get('http://localhost:5000/api/courses');
         setFeaturedCourses(response.data.slice(0, 3)); 
       } catch (error) {
         console.error("Erreur", error);

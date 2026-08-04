@@ -7,6 +7,7 @@ import Catalog from './pages/Catalog';
 import CoursePlayer from './pages/CoursePlayer';
 import InstructorPortal from './pages/InstructorPortal';
 import CourseManager from './pages/CourseManager';
+import Account from './pages/Account';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/catalog" element={<Catalog />} />
+          <Route path="/account" element={<Account />} />
           <Route path="/courses/:courseId" element={<CoursePlayer />} />
           <Route path="/instructor" element={<InstructorPortal />} />
           <Route path="/instructor/courses/:courseId" element={<CourseManager />} />

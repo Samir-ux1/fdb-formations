@@ -26,5 +26,7 @@ router.put('/:courseId', verifyToken, isInstructor, courseController.updateCours
 router.delete('/:courseId', verifyToken, isInstructor, courseController.deleteCourse);
 router.post('/:courseId/unlock', verifyToken, courseController.unlockCourse);
 
+router.post('/:courseId/validate', verifyToken, courseController.validateCourse);
+
 // TOUJOURS À LA FIN :
 module.exports = router;

@@ -48,13 +48,14 @@ model Course {
 
   // Le lien de l'image de couverture
   imageUrl    String?  @default("https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800&auto=format&fit=crop") 
+  passingScore Float @default(70.0)
   
   createdAt   DateTime @default(now())
 
   // Relation avec le créateur (Instructeur)
   instructorId Int
   instructor   User         @relation("InstructorCourses", fields: [instructorId], references: [id])
-  
+
   // Contenu du cours
   lessons      Lesson[]
   enrollments  Enrollment[]
@@ -82,6 +83,10 @@ model Enrollment {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
 
+  status      String    @default("IN_PROGRESS") // "IN_PROGRESS", "VALIDATED", "FAILED"
+  finalScore  Float?    // La note finale
+  completedAt DateTime? // La date de fin (pour calculer la durée)
+
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
   
@@ -96,6 +101,7 @@ model Enrollment {
 model LessonProgress {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
+  score       Float?
 
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

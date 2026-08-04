@@ -76,7 +76,7 @@ export default function Layout() {
                     Déconnexion
                   </button>
                 </div>
-                <Link to="/dashboard" className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-md hover:scale-105 transition-transform">
+                <Link to="/account" title="Mon Compte" className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-md hover:scale-105 transition-transform">
                   {user.name.charAt(0).toUpperCase()}
                 </Link>
               </div>

@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 // --- CRÉER UNE FORMATION ---
 exports.createCourse = async (req, res) => {
   try {
-    const { title, description, accessKey, imageUrl } = req.body; // <-- On récupère imageUrl
+    const { title, description, accessKey, imageUrl, passingScore } = req.body; // <-- On récupère imageUrl
     const instructorId = req.user.userId; 
 
     const newCourse = await prisma.course.create({
@@ -207,7 +207,7 @@ exports.updateCourse = async (req, res) => {
     // 2. Mettre à jour
     const updatedCourse = await prisma.course.update({
       where: { id: courseId },
-      data: { title, description, accessKey, imageUrl }
+      data: { title, description, accessKey, imageUrl, passingScore }
     });
 
     res.status(200).json({ message: "Formation mise à jour !", course: updatedCourse });
@@ -236,5 +236,74 @@ exports.deleteCourse = async (req, res) => {
     res.status(200).json({ message: "Formation supprimée avec succès." });
   } catch (error) {
     res.status(500).json({ message: "Erreur lors de la suppression.", error: error.message });
+  }
+};
+
+// --- VALIDER LA FORMATION (CALCUL DU SCORE ET DE LA DURÉE) ---
+exports.validateCourse = async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId);
+    const userId = req.user.userId;
+
+    // 1. Récupérer l'inscription et le cours
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId, courseId } },
+      include: { course: true }
+    });
+
+    if (!enrollment) return res.status(404).json({ message: "Inscription introuvable." });
+    if (enrollment.status !== "IN_PROGRESS") {
+      return res.status(400).json({ message: "Ce cours a déjà été évalué.", enrollment });
+    }
+
+    // 2. Récupérer les scores de toutes les leçons de ce cours pour cet étudiant
+    const progresses = await prisma.lessonProgress.findMany({
+      where: { 
+        userId: userId,
+        lesson: { courseId: courseId }
+      }
+    });
+
+    // 3. Calculer le score final (Moyenne des quiz)
+    // On additionne les scores (s'ils existent, sinon 0) et on divise par le nombre de leçons
+    let totalScore = 0;
+    progresses.forEach(p => {
+      totalScore += (p.score || 0); // Si pas de quiz, ça compte comme 0 (ou on l'ignore selon ta logique)
+    });
+    
+    // Évite la division par zéro s'il n'y a pas de leçons
+    const finalScore = progresses.length > 0 ? (totalScore / progresses.length) : 0; 
+
+    // 4. Calculer la durée d'apprentissage (Entre l'unlock et maintenant)
+    const startDate = new Date(enrollment.createdAt);
+    const endDate = new Date();
+    const durationInHours = Math.round(Math.abs(endDate - startDate) / 36e5); // Différence en heures
+
+    // 5. Appliquer la règle de validation (Le Seuil de l'instructeur)
+    const isSuccess = finalScore >= enrollment.course.passingScore;
+    const newStatus = isSuccess ? "VALIDATED" : "FAILED";
+
+    // 6. Sauvegarder le résultat final dans la base de données
+    const updatedEnrollment = await prisma.enrollment.update({
+      where: { id: enrollment.id },
+      data: {
+        status: newStatus,
+        finalScore: Math.round(finalScore),
+        completedAt: endDate
+      }
+    });
+
+    res.status(200).json({
+      message: isSuccess ? "Félicitations, vous avez validé la formation !" : "Échec de la validation. Score trop bas.",
+      result: {
+        status: newStatus,
+        score: Math.round(finalScore),
+        requiredScore: enrollment.course.passingScore,
+        durationHours: durationInHours
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la validation.", error: error.message });
   }
 };

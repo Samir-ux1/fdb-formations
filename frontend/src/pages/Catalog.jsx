@@ -17,7 +17,7 @@ export default function Catalog() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await axios.get('https://fdb-formations-production.up.railway.app/api/courses');
+        const response = await axios.get('http://localhost:5000/api/courses');
         setCourses(response.data);
       } catch (error) {
         console.error("Erreur lors de la récupération des formations", error);
@@ -43,7 +43,7 @@ export default function Catalog() {
 
       // Appel à ton API de déblocage avec le Token dans l'en-tête (Header)
       await axios.post(
-        `https://fdb-formations-production.up.railway.app/api/courses/${selectedCourse.id}/unlock`,
+        `http://localhost:5000/api/courses/${selectedCourse.id}/unlock`,
         { key: accessKey },
         { headers: { Authorization: `Bearer ${token}` } }
       );

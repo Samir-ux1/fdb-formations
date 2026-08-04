@@ -12,6 +12,15 @@ export default function CoursePlayer() {
   const [currentLesson, setCurrentLesson] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // --- ÉTATS POUR LE QUIZ ÉTAPE PAR ÉTAPE ---
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Savoir à quelle question on est
+  const [selectedOption, setSelectedOption] = useState(null); // L'option cliquée
+  const [isAnswered, setIsAnswered] = useState(false); // Est-ce qu'il a répondu à la question actuelle ?
+  const [score, setScore] = useState(0); // Le score total
+  const [quizFinished, setQuizFinished] = useState(false); // Le quiz est-il terminé ?
+
+  const [validationResult, setValidationResult] = useState(null);
+
   // Fonction magique pour extraire l'ID d'une vidéo YouTube
   const getYouTubeId = (url) => {
     if (!url) return null;
@@ -25,7 +34,7 @@ export default function CoursePlayer() {
       const token = localStorage.getItem('token');
       if (!token) return navigate('/');
 
-      const response = await axios.get(`https://fdb-formations-production.up.railway.app/api/courses/${courseId}`, {
+      const response = await axios.get(`http://localhost:5000/api/courses/${courseId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -61,11 +70,20 @@ export default function CoursePlayer() {
     }
   }, [courseId]);
 
+   // Réinitialiser le quiz quand on change de leçon
+  useEffect(() => {
+    setCurrentQuestionIndex(0);
+    setSelectedOption(null);
+    setIsAnswered(false);
+    setScore(0);
+    setQuizFinished(false);
+  }, [currentLesson]);
+
   // FONCTION POUR COCHER/DÉCOCHER UNE LEÇON
   const toggleComplete = async (lessonId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`https://fdb-formations-production.up.railway.app/api/courses/${courseId}/lessons/${lessonId}/progress`, {}, {
+      await axios.post(`http://localhost:5000/api/courses/${courseId}/lessons/${lessonId}/progress`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchCourseData(); // Recharge le cours pour mettre à jour la barre de progression
@@ -97,10 +115,62 @@ export default function CoursePlayer() {
     }
   };
 
+  const handleValidateCourse = async () => {
+    if (!window.confirm("Êtes-vous sûr de vouloir valider ? Votre score final sera calculé.")) return;
+    try {
+      const response = await axios.post(`http://localhost:5000/api/courses/${courseId}/validate`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setValidationResult(response.data.result);
+    } catch (error) {
+      alert("Erreur : " + error.response?.data?.message);
+    }
+  };
+
   // --- CALCUL DE LA NAVIGATION (Précédent / Suivant) ---
   const currentIndex = course.lessons.findIndex(l => l.id === currentLesson?.id);
   const prevLesson = currentIndex > 0 ? course.lessons[currentIndex - 1] : null;
   const nextLesson = currentIndex < course.lessons.length - 1 ? course.lessons[currentIndex + 1] : null;
+
+  // --- GESTION DU QUIZ ---
+  const handleSelectOption = (optionIndex) => {
+    if (isAnswered) return; // Si on a déjà répondu, on bloque le clic !
+    
+    setSelectedOption(optionIndex);
+    setIsAnswered(true);
+
+    // On vérifie immédiatement si c'est la bonne réponse
+    const currentQ = currentLesson.questions[currentQuestionIndex];
+    if (optionIndex === currentQ.correctAnswer) {
+      setScore(prev => prev + 1); // On augmente le score
+    }
+  };
+
+  const handleNextQuestion = () => {
+    // S'il reste des questions, on passe à la suivante
+    if (currentQuestionIndex < currentLesson.questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      setSelectedOption(null);
+      setIsAnswered(false);
+    } else {
+      // Sinon, on a fini le Quiz !
+      setQuizFinished(true);
+      
+      // Si le score est parfait (100%), on valide la leçon automatiquement
+      // Note: On utilise (score) tel qu'il est, car il a déjà été mis à jour au clic précédent
+      if (score === currentLesson.questions.length && !isCurrentLessonCompleted) {
+        toggleComplete(currentLesson.id);
+      }
+    }
+  };
+
+  const handleRetryQuiz = () => {
+    setCurrentQuestionIndex(0);
+    setSelectedOption(null);
+    setIsAnswered(false);
+    setScore(0);
+    setQuizFinished(false);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
@@ -183,6 +253,114 @@ export default function CoursePlayer() {
 
             <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">
               {currentLesson ? currentLesson.content : course.description}
+              {/* ================= SECTION QUIZ ÉTAPE PAR ÉTAPE ================= */}
+            {currentLesson?.questions && currentLesson.questions.length > 0 && (
+              <div className="mt-12 pt-8 border-t border-slate-200">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center text-xl">📝</div>
+                  <h3 className="text-2xl font-bold text-slate-900">Quiz de validation</h3>
+                </div>
+
+                {!quizFinished ? (
+                  // L'ÉTUDIANT EST EN TRAIN DE JOUER
+                  <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 shadow-sm">
+                    {/* Barre de progression du quiz */}
+                    <div className="flex justify-between items-center mb-6">
+                      <span className="text-sm font-bold text-indigo-600 uppercase tracking-wider">
+                        Question {currentQuestionIndex + 1} sur {currentLesson.questions.length}
+                      </span>
+                      <span className="text-sm font-bold text-slate-400">Score: {score}</span>
+                    </div>
+
+                    {/* Affichage de la question avec le BON nom de colonne */}
+                    <h4 className="text-xl font-bold text-slate-900 mb-8">
+                      {currentLesson.questions[currentQuestionIndex].questionText}
+                    </h4>
+                    
+                    <div className="space-y-4">
+                      {currentLesson.questions[currentQuestionIndex].options.map((option, optIdx) => {
+                        const currentQ = currentLesson.questions[currentQuestionIndex];
+                        const isSelected = selectedOption === optIdx;
+                        const isCorrect = currentQ.correctAnswer === optIdx;
+                        
+                        // Logique des couleurs en temps réel
+                        let buttonStyle = "border-slate-300 hover:border-indigo-600 hover:bg-indigo-50 text-slate-700 bg-white";
+                        
+                        if (isAnswered) {
+                          if (isCorrect) {
+                            buttonStyle = "border-green-500 bg-green-50 text-green-700 font-bold shadow-md"; // Toujours vert si c'est la bonne réponse
+                          } else if (isSelected && !isCorrect) {
+                            buttonStyle = "border-red-500 bg-red-50 text-red-700 font-bold"; // Rouge si on a cliqué sur la mauvaise
+                          } else {
+                            buttonStyle = "border-slate-200 bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed"; // Grisé
+                          }
+                        }
+
+                        return (
+                          <button
+                            key={optIdx}
+                            onClick={() => handleSelectOption(optIdx)}
+                            disabled={isAnswered}
+                            className={`w-full text-left p-5 rounded-2xl border-2 transition-all flex items-center gap-4 ${buttonStyle}`}
+                          >
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0
+                              ${isAnswered && isCorrect ? 'border-green-500 bg-green-500' : 
+                                isAnswered && isSelected && !isCorrect ? 'border-red-500 bg-red-500' :
+                                'border-slate-300 bg-white'}`}>
+                              {(isAnswered && isCorrect) ? <span className="text-white text-xs font-bold">✓</span> : 
+                               (isAnswered && isSelected && !isCorrect) ? <span className="text-white text-xs font-bold">✗</span> : null}
+                            </div>
+                            <span className="text-lg">{option}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Bouton Suivant (S'affiche uniquement quand il a répondu) */}
+                    {isAnswered && (
+                      <div className="mt-8 flex justify-end animate-in fade-in slide-in-from-bottom-2">
+                        <button 
+                          onClick={handleNextQuestion}
+                          className="px-8 py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-indigo-600 transition-colors shadow-lg flex items-center gap-2"
+                        >
+                          {currentQuestionIndex < currentLesson.questions.length - 1 ? "Question suivante →" : "Voir mon résultat 🏆"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                ) : (
+                  // LE QUIZ EST TERMINÉ (RÉSULTATS)
+                  <div className="bg-white p-10 rounded-3xl border border-slate-200 text-center shadow-lg">
+                    <div className="text-6xl mb-6">
+                      {score === currentLesson.questions.length ? "🏆" : score > 0 ? "👍" : "😅"}
+                    </div>
+                    <h3 className="text-3xl font-black text-slate-900 mb-2">Quiz Terminé !</h3>
+                    <p className="text-lg text-slate-500 mb-8">
+                      Vous avez obtenu <span className="font-bold text-indigo-600">{score} bonne(s) réponse(s)</span> sur {currentLesson.questions.length}.
+                    </p>
+
+                    {score === currentLesson.questions.length ? (
+                      <div className="p-4 bg-green-100 text-green-700 rounded-xl font-bold mb-8">
+                        Parfait ! Cette leçon est maintenant validée.
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-amber-100 text-amber-700 rounded-xl font-bold mb-8">
+                        Il faut avoir tout juste pour valider la leçon !
+                      </div>
+                    )}
+
+                    <button 
+                      onClick={handleRetryQuiz}
+                      className="px-8 py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors"
+                    >
+                      ↻ Recommencer le Quiz
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* ================= FIN DU QUIZ ================= */}
             </p>
 
             {/* BOUTONS PRÉCÉDENT / SUIVANT */}
@@ -271,6 +449,31 @@ export default function CoursePlayer() {
               })
             )}
           </div>
+          
+          {/* ⬇️ COLONNE À COLLER EXACTEMENT ICI (Juste avant </aside>) ⬇️ */}
+          {!nextLesson && (
+            <div className="p-6 bg-slate-50 border-t border-slate-200 mt-auto">
+              {validationResult ? (
+                <div className={`p-4 rounded-xl text-center ${validationResult.status === 'VALIDATED' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  <h4 className="font-black text-xl mb-2">
+                    {validationResult.status === 'VALIDATED' ? '🎓 Validé !' : '❌ Non Validé'}
+                  </h4>
+                  <p className="text-sm font-bold">Score final : {validationResult.score}%</p>
+                  <p className="text-xs mt-1">Requis : {validationResult.requiredScore}%</p>
+                  <p className="text-xs mt-1">Temps passé : {validationResult.durationHours} heures</p>
+                </div>
+              ) : (
+                <button 
+                  onClick={handleValidateCourse}
+                  className="w-full py-4 bg-purple-600 text-white font-black rounded-xl shadow-lg hover:bg-purple-700 hover:-translate-y-1 transition-all"
+                >
+                  Valider la formation
+                </button>
+              )}
+            </div>
+          )}
+          {/* ⬆️ FIN DU COLLAGE ⬆️ */}
+
         </aside>
 
       </main>
