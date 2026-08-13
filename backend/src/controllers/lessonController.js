@@ -59,10 +59,14 @@ exports.deleteLesson = async (req, res) => {
   }
 };
 
+// --- MARQUER UNE LEÇON COMME TERMINÉE / NON TERMINÉE ---
 exports.toggleProgress = async (req, res) => {
   try {
     const lessonId = parseInt(req.params.lessonId);
     const userId = req.user.userId;
+    
+    // NOUVEAU : On récupère le score du quiz si tu l'envoies depuis React
+    const { score } = req.body; 
 
     const existingProgress = await prisma.lessonProgress.findUnique({
       where: { userId_lessonId: { userId, lessonId } }
@@ -72,7 +76,14 @@ exports.toggleProgress = async (req, res) => {
       await prisma.lessonProgress.delete({ where: { id: existingProgress.id } });
       return res.status(200).json({ completed: false });
     } else {
-      await prisma.lessonProgress.create({ data: { userId, lessonId } });
+      // NOUVEAU : Si aucun score n'est fourni, on met 100% par défaut !
+      await prisma.lessonProgress.create({ 
+        data: { 
+          userId, 
+          lessonId,
+          score: score !== undefined ? parseFloat(score) : 100 
+        } 
+      });
       return res.status(200).json({ completed: true });
     }
   } catch (error) {
@@ -80,8 +91,8 @@ exports.toggleProgress = async (req, res) => {
   }
 };
 
-// --- LES FONCTIONS DU QUIZ ---
-exports.addQuestion = async (req, res) => {
+// --- AJOUTER UNE QUESTION À UNE LEÇON (QUIZ DE CHAPITRE) ---
+exports.addLessonQuestion = async (req, res) => {
   try {
     const lessonId = parseInt(req.params.lessonId);
     const { questionText, options, correctAnswer } = req.body;
@@ -96,15 +107,16 @@ exports.addQuestion = async (req, res) => {
     });
     res.status(201).json({ message: "Question ajoutée !", question: newQuestion });
   } catch (error) {
-    res.status(500).json({ message: "Erreur serveur.", error: error.message });
+    res.status(500).json({ message: "Erreur.", error: error.message });
   }
 };
 
-exports.deleteQuestion = async (req, res) => {
+// --- SUPPRIMER UNE QUESTION D'UNE LEÇON ---
+exports.deleteLessonQuestion = async (req, res) => {
   try {
     const questionId = parseInt(req.params.questionId);
     await prisma.question.delete({ where: { id: questionId } });
-    res.status(200).json({ message: "Question supprimée." });
+    res.status(200).json({ message: "Question supprimée" });
   } catch (error) {
     res.status(500).json({ message: "Erreur.", error: error.message });
   }

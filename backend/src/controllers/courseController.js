@@ -157,12 +157,17 @@ exports.getCourseById = async (req, res) => {
             questions: true // <-- NOUVEAU : On inclut les questions du quiz !
           }
         },
-        instructor: { select: { name: true } }
+        instructor: { select: { name: true } },
+        examQuestions: true // <-- NOUVEAU : On inclut les questions de l'examen !
       }
     });
 
     if (!course) {
-      return res.status(404).json({ message: "Formation introuvable." });
+      return // On renvoie le cours ET les infos de l'étudiant (pour savoir s'il a déjà validé)
+    res.status(200).json({ 
+      ...course, 
+      enrollment: isEnrolled 
+    });
     }
 
     res.status(200).json(course);
@@ -196,7 +201,7 @@ exports.getInstructorCourses = async (req, res) => {
 exports.updateCourse = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
-    const { title, description, accessKey, imageUrl } = req.body;
+    const { title, description, accessKey, imageUrl, passingScore } = req.body;
 
     // 1. Vérifier que c'est bien l'auteur du cours
     const course = await prisma.course.findUnique({ where: { id: courseId } });
@@ -305,5 +310,152 @@ exports.validateCourse = async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ message: "Erreur lors de la validation.", error: error.message });
+  }
+};
+
+// --- RÉCUPÉRER LES ÉTUDIANTS INSCRITS À CE COURS ---
+exports.getCourseStudents = async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId);
+
+    // Vérifier si l'instructeur est bien le créateur
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!course || course.instructorId !== req.user.userId) {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
+
+    // Récupérer les inscriptions avec les infos de l'utilisateur
+    const students = await prisma.enrollment.findMany({
+      where: { courseId: courseId },
+      include: {
+        user: { select: { id: true, name: true, email: true, avatarUrl: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.status(200).json(students);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur.", error: error.message });
+  }
+};
+
+// --- DONNER UNE SECONDE CHANCE (RÉINITIALISER LA PROGRESSION) ---
+exports.resetStudentProgress = async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId);
+    const studentId = parseInt(req.params.studentId);
+
+    // Vérifier la sécurité
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!course || course.instructorId !== req.user.userId) {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
+
+    // 1. Remettre l'inscription au statut "IN_PROGRESS" et effacer la note
+    await prisma.enrollment.update({
+      where: { userId_courseId: { userId: studentId, courseId: courseId } },
+      data: { status: "IN_PROGRESS", finalScore: null, completedAt: null, createdAt: new Date() }
+    });
+
+    // 2. Trouver toutes les leçons de ce cours
+    const lessons = await prisma.lesson.findMany({ where: { courseId: courseId } });
+    const lessonIds = lessons.map(l => l.id);
+
+    // 3. Supprimer les coches vertes (progressions) de cet étudiant pour ces leçons
+    if (lessonIds.length > 0) {
+      await prisma.lessonProgress.deleteMany({
+        where: { userId: studentId, lessonId: { in: lessonIds } }
+      });
+    }
+
+    res.status(200).json({ message: "La formation a été réinitialisée pour cet étudiant !" });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la réinitialisation.", error: error.message });
+  }
+};
+
+
+// --- SOUMETTRE LES NOTES ET VALIDER LA FORMATION ---
+exports.submitGrades = async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId);
+    const userId = req.user.userId;
+    const { quizScore, examScore } = req.body; // Les notes envoyées (sur 100)
+
+    // 1. Calcul de la note finale avec ta règle : 30% Quiz + 70% Examen
+    const finalGrade = (quizScore * 0.3) + (examScore * 0.7);
+
+    // 2. Vérification : On dit que c'est validé si la moyenne est au moins de 50/100
+    // (Tu peux changer le 50 par la moyenne que tu exiges)
+    const isValidated = finalGrade >= 50;
+
+    // 3. Mise à jour dans la base de données
+    const updatedEnrollment = await prisma.enrollment.update({
+      where: {
+        userId_courseId: { userId, courseId }
+      },
+      data: {
+        quizScore,
+        examScore,
+        finalGrade,
+        isValidated
+      }
+    });
+
+    res.status(200).json({ 
+      message: isValidated ? "Félicitations, formation validée !" : "Formation non validée, il faut repasser l'examen.",
+      results: {
+        quizScore,
+        examScore,
+        finalGrade,
+        isValidated
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la notation.", error: error.message });
+  }
+};
+
+// --- AJOUTER UNE QUESTION À L'EXAMEN FINAL ---
+exports.addExamQuestion = async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId);
+    const { questionText, options, correctAnswer } = req.body;
+
+    const newQuestion = await prisma.question.create({
+      data: {
+        questionText,
+        options,
+        correctAnswer: parseInt(correctAnswer),
+        courseId
+      }
+    });
+    res.status(201).json({ message: "Question ajoutée à l'examen !", question: newQuestion });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de l'ajout.", error: error.message });
+  }
+};
+
+// --- SUPPRIMER UNE QUESTION D'EXAMEN FINAL ---
+exports.deleteExamQuestion = async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId);
+    const questionId = parseInt(req.params.questionId);
+
+    // 1. Vérifier que c'est bien l'auteur du cours
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!course || course.instructorId !== req.user.userId) {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
+
+    // 2. Supprimer la question
+    await prisma.question.delete({
+      where: { id: questionId }
+    });
+
+    res.status(200).json({ message: "Question supprimée avec succès." });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la suppression.", error: error.message });
   }
 };

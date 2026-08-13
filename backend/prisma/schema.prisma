@@ -59,6 +59,8 @@ model Course {
   // Contenu du cours
   lessons      Lesson[]
   enrollments  Enrollment[]
+
+  examQuestions Question[]   @relation("CourseExam")
 }
 
 // 3. Table Leçons (Vidéos et contenu)
@@ -74,8 +76,7 @@ model Lesson {
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   progresses       LessonProgress[]
 
-  questions  Question[] 
-
+  questions  Question[] @relation("LessonQuiz")
 }
 
 // 4. Table des inscriptions (Qui achète/suit quelle formation)
@@ -84,7 +85,6 @@ model Enrollment {
   createdAt DateTime @default(now())
 
   status      String    @default("IN_PROGRESS") // "IN_PROGRESS", "VALIDATED", "FAILED"
-  finalScore  Float?    // La note finale
   completedAt DateTime? // La date de fin (pour calculer la durée)
 
   userId    Int
@@ -92,6 +92,11 @@ model Enrollment {
   
   courseId  Int
   course    Course   @relation(fields: [courseId], references: [id])
+
+  quizScore   Float?   // Note du quiz (sur 100)
+  examScore   Float?   // Note de l'examen final (sur 100)
+  finalGrade  Float?   // Note finale calculée (30% quiz + 70% exam)
+  isValidated Boolean  @default(false) // Passe à true si la note finale est suffisant
 
   // Un utilisateur ne peut s'inscrire qu'une seule fois au même cours
   @@unique([userId, courseId]) 
@@ -120,6 +125,10 @@ model Question {
   options       String[] // Un tableau qui contiendra les choix (ex: ["A", "B", "C"])
   correctAnswer Int      // Le numéro de la bonne réponse (0 pour A, 1 pour B, etc.)
 
-  lessonId      Int
-  lesson        Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lessonId      Int?
+  lesson        Lesson?   @relation("LessonQuiz", fields: [lessonId], references: [id], onDelete: Cascade)
+
+  // Si la question appartient à l'examen final du cours :
+  courseId      Int?
+  course        Course?  @relation("CourseExam", fields: [courseId], references: [id], onDelete: Cascade)
 }

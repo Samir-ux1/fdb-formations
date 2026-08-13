@@ -12,6 +12,9 @@ export default function CoursePlayer() {
   const [currentLesson, setCurrentLesson] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Permet de savoir si l'étudiant a fini de regarder
+  const [isVideoFinished, setIsVideoFinished] = useState(false);
+
   // --- ÉTATS POUR LE QUIZ ÉTAPE PAR ÉTAPE ---
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Savoir à quelle question on est
   const [selectedOption, setSelectedOption] = useState(null); // L'option cliquée
@@ -19,7 +22,12 @@ export default function CoursePlayer() {
   const [score, setScore] = useState(0); // Le score total
   const [quizFinished, setQuizFinished] = useState(false); // Le quiz est-il terminé ?
 
+  // ÉTATS EXAMEN FINAL
+  const [showFinalExam, setShowFinalExam] = useState(false);
+  const [examAnswers, setExamAnswers] = useState({});
   const [validationResult, setValidationResult] = useState(null);
+
+  const { token, setLastCourseId } = useAuthStore();
 
   // Fonction magique pour extraire l'ID d'une vidéo YouTube
   const getYouTubeId = (url) => {
@@ -31,14 +39,33 @@ export default function CoursePlayer() {
 
   const fetchCourseData = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return navigate('/');
+      // 1. On crée un token de secours pour éviter la milliseconde de vide de Zustand
+      const activeToken = token || localStorage.getItem('token');
+      
+      if (!activeToken) return navigate('/login'); // On renvoie vers le login, pas vers '/'
 
       const response = await axios.get(`http://localhost:5000/api/courses/${courseId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${activeToken}` }
       });
       
       setCourse(response.data);
+
+      // --- NOUVEAU : VÉRIFIER SI LE COURS EST DÉJÀ VALIDÉ ---
+      if (response.data.enrollment && response.data.enrollment.status !== 'IN_PROGRESS') {
+        // On calcule le temps passé
+        const start = new Date(response.data.enrollment.createdAt);
+        const end = new Date(response.data.enrollment.completedAt);
+        const durationHours = Math.round(Math.abs(end - start) / 36e5);
+
+        // On affiche directement le résultat !
+         setValidationResult({
+          status: response.data.enrollment.status,
+          finalGrade: response.data.enrollment.finalGrade,
+          quizScore: response.data.enrollment.quizScore,
+          examScore: response.data.enrollment.examScore
+        });
+      }
+  
       // Sélectionne la première leçon si aucune n'est sélectionnée
       if (!currentLesson && response.data.lessons.length > 0) {
         setCurrentLesson(response.data.lessons[0]);
@@ -79,16 +106,95 @@ export default function CoursePlayer() {
     setQuizFinished(false);
   }, [currentLesson]);
 
+  useEffect(() => {
+    setIsVideoFinished(false);
+  }, [currentLesson?.id]);
+
   // FONCTION POUR COCHER/DÉCOCHER UNE LEÇON
-  const toggleComplete = async (lessonId) => {
+  const toggleComplete = async (lessonId, quizScore = 100) => {
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:5000/api/courses/${courseId}/lessons/${lessonId}/progress`, {}, {
+      const token = localStorage.getItem('token'); // <-- LA LIGNE MAGIQUE EST LÀ !
+      
+      await axios.post(`http://localhost:5000/api/courses/${courseId}/lessons/${lessonId}/progress`, 
+      { score: quizScore }, 
+      { headers: { Authorization: `Bearer ${token}` } });
+      
+      fetchCourseData(); 
+    } catch (error) {
+      console.error(error);
+      alert("Erreur Backend : " + (error.response?.data?.message || error.message));
+    }
+  };
+
+  
+
+  // --- CALCULATION DU RÉSULTAT FINAL ---
+  const handleValidateCourse = async () => {
+    if (!window.confirm("Valider l'examen ? Votre note finale sera calculée.")) return;
+    
+    // 1. Calcul de la moyenne de tous les quiz de chapitres
+    const completedLessons = course.lessons.filter(l => l.progresses && l.progresses.length > 0);
+    let totalQuizScore = 0;
+    completedLessons.forEach(l => { totalQuizScore += (l.progresses[0].score || 100); });
+    const averageQuizScore = completedLessons.length > 0 ? (totalQuizScore / completedLessons.length) : 0;
+
+    // 2. Calcul du score de l'Examen Final
+    let examCorrect = 0;
+    course.examQuestions.forEach((q, index) => {
+      if (examAnswers[index] === q.correctAnswer) examCorrect++;
+    });
+    const examScore = course.examQuestions.length > 0 
+      ? Math.round((examCorrect / course.examQuestions.length) * 100) 
+      : 100; // S'il n'y a pas d'examen, on donne 100
+
+    try {
+      // 3. Envoi à l'API grades que tu as créée
+      const response = await axios.post(`http://localhost:5000/api/courses/${courseId}/grades`, {
+        quizScore: averageQuizScore,
+        examScore: examScore
+      }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchCourseData(); // Recharge le cours pour mettre à jour la barre de progression
+      
+      setValidationResult(response.data.results);
+      setShowFinalExam(false);
     } catch (error) {
-      alert("Erreur lors de la sauvegarde de la progression.");
+      alert("Erreur serveur : " + (error.response?.data?.message || error.message));
+    }
+  };
+
+    // --- SOUMISSION DE L'EXAMEN FINAL ---
+  const handleSubmitExam = async () => {
+    if (!window.confirm("Êtes-vous sûr de vouloir valider l'examen ? Votre note finale sera calculée.")) return;
+    
+    // 1. Calculer la note de l'examen final sur 100
+    let examCorrect = 0;
+    const totalExamQs = course.examQuestions?.length || 0;
+    
+    if (totalExamQs > 0) {
+      course.examQuestions.forEach((q, index) => {
+        if (examAnswers[index] === q.correctAnswer) examCorrect++;
+      });
+    }
+    const calculatedExamScore = totalExamQs > 0 ? Math.round((examCorrect / totalExamQs) * 100) : 100;
+    
+    // 2. Note des petits quiz (On part du principe que c'est 100% car il a fallu tout valider pour arriver ici)
+    const averageQuizScore = 100;
+
+    try {
+      const activeToken = token || localStorage.getItem('token'); 
+      const response = await axios.post(`http://localhost:5000/api/courses//${courseId}/grades`, {
+        quizScore: averageQuizScore,
+        examScore: calculatedExamScore
+      }, {
+        headers: { Authorization: `Bearer ${activeToken}` }
+      });
+      
+      // 3. On affiche le résultat (Trophée ou Échec)
+      setValidationResult(response.data.results);
+      setShowFinalExam(false);
+    } catch (error) {
+      alert("Erreur serveur : " + (error.response?.data?.message || error.message));
     }
   };
 
@@ -101,29 +207,15 @@ export default function CoursePlayer() {
 
   // FONCTION MAGIQUE : S'active quand la vidéo se termine
   const handleVideoEnd = () => {
+    setIsVideoFinished(true); // <-- AJOUTE CETTE LIGNE (Débloque le bouton)
+
     const isCurrentLessonCompleted = currentLesson?.progresses?.length > 0;
-    
     if (!isCurrentLessonCompleted) {
-      toggleComplete(currentLesson.id);
+      toggleComplete(currentLesson.id, 100);
     }
 
-    // On passe à la vidéo suivante après 2 secondes (pour laisser le temps de voir le bouton vert !)
     if (nextLesson) {
-      setTimeout(() => {
-        setCurrentLesson(nextLesson);
-      }, 2000); 
-    }
-  };
-
-  const handleValidateCourse = async () => {
-    if (!window.confirm("Êtes-vous sûr de vouloir valider ? Votre score final sera calculé.")) return;
-    try {
-      const response = await axios.post(`http://localhost:5000/api/courses/${courseId}/validate`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setValidationResult(response.data.result);
-    } catch (error) {
-      alert("Erreur : " + error.response?.data?.message);
+      setTimeout(() => setCurrentLesson(nextLesson), 2000); 
     }
   };
 
@@ -196,7 +288,62 @@ export default function CoursePlayer() {
         
         {/* LECTEUR VIDÉO ET BOUTON (À gauche) */}
         <div className="lg:col-span-8 space-y-6">
-          
+          {validationResult ? (
+            /* 1. ÉCRAN DE RÉSULTAT FINAL */
+            <div className="bg-white rounded-3xl p-10 shadow-lg border border-slate-200 text-center">
+              <div className={`w-32 h-32 mx-auto rounded-full flex items-center justify-center text-6xl mb-6 shadow-inner ${validationResult.isValidated ? 'bg-green-100' : 'bg-red-100'}`}>
+                {validationResult.isValidated ? '🏆' : '❌'}
+              </div>
+              <h2 className="text-4xl font-black mb-4 text-slate-900">
+                {validationResult.isValidated ? 'Formation Validée !' : 'Échec de la validation'}
+              </h2>
+              <div className="bg-slate-50 p-8 rounded-2xl max-w-md mx-auto space-y-4 mb-8 text-left border border-slate-100">
+                <p className="flex justify-between text-lg text-slate-600"><span>Moyenne des Quiz (30%) :</span> <strong className="text-slate-900">{validationResult.quizScore}/100</strong></p>
+                <p className="flex justify-between text-lg text-slate-600"><span>Examen Final (70%) :</span> <strong className="text-slate-900">{validationResult.examScore}/100</strong></p>
+                <div className="h-px bg-slate-200 my-4"></div>
+                <p className="flex justify-between text-2xl text-blue-600 font-black">
+                  <span>Note Finale :</span> <span>{validationResult.finalGrade}/100</span>
+                </p>
+              </div>
+              <Link to="/dashboard" className="inline-block px-10 py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors">
+                Retour au Tableau de bord
+              </Link>
+            </div>
+
+          ) : showFinalExam ? (
+            /* 2. ÉCRAN DE L'EXAMEN FINAL (SÉCURISÉ) */
+            <div className="bg-white rounded-3xl p-8 shadow-lg border border-slate-200">
+              <h2 className="text-3xl font-black mb-2 text-slate-900">Examen Final</h2>
+              <p className="text-slate-500 mb-8">Répondez à ces questions pour valider la formation. (Compte pour 70% de la note finale).</p>
+              
+              {(!course.examQuestions || course.examQuestions.length === 0) ? (
+                <p className="text-slate-500 italic p-6 bg-slate-50 rounded-xl">L'instructeur n'a pas encore ajouté de questions à cet examen.</p>
+              ) : (
+                course.examQuestions.map((q, i) => (
+                  <div key={i} className="mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                    <p className="font-bold text-lg mb-4 text-slate-800">{i+1}. {q.questionText}</p>
+                    <div className="space-y-3">
+                      {/* SÉCURITÉ : On ajoute (q.options || []) pour éviter le crash si options est vide ! */}
+                      {(q.options || []).map((opt, optIndex) => (
+                        <label key={optIndex} className={`flex items-center gap-4 p-4 bg-white rounded-xl border-2 cursor-pointer transition-all ${examAnswers[i] === optIndex ? 'border-purple-600 bg-purple-50' : 'border-slate-200 hover:border-purple-300'}`}>
+                          <input type="radio" name={`exam-${i}`} checked={examAnswers[i] === optIndex} onChange={() => setExamAnswers({...examAnswers, [i]: optIndex})} className="w-5 h-5 text-purple-600"/>
+                          <span className={examAnswers[i] === optIndex ? 'font-bold text-purple-900' : 'text-slate-700'}>{opt}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {course.examQuestions && course.examQuestions.length > 0 && (
+                <button onClick={handleSubmitExam} className="w-full py-5 bg-purple-600 text-white text-xl font-black rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-600/30 transition-all">
+                  Soumettre l'Examen 🎓
+                </button>
+              )}
+            </div>
+            ) : (
+            /* 3. ÉCRAN LECTEUR VIDÉO ET QUIZ CHAPITRE */
+            <>
           <div className="relative w-full aspect-video bg-black rounded-3xl overflow-hidden shadow-lg">
             {currentLesson?.videoUrl ? (
               getYouTubeId(currentLesson.videoUrl.trim()) ? (
@@ -233,26 +380,37 @@ export default function CoursePlayer() {
               </h2>
               
               {/* BOUTON TERMINER LA LECON */}
-              {currentLesson && (
-                <button 
-                  onClick={() => toggleComplete(currentLesson.id)}
-                  className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-                    isCurrentLessonCompleted 
-                    ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-600' // Devient rouge au survol si on veut annuler
-                    : 'bg-slate-900 text-white hover:bg-blue-600'
-                  }`}
-                >
-                  {isCurrentLessonCompleted ? (
-                    <><span>✓</span> Terminée (Annuler)</>
-                  ) : (
-                    "Marquer comme terminée"
-                  )}
-                </button>
-              )}
+              {currentLesson && (() => {
+                const isCurrentLessonCompleted = currentLesson?.progresses?.length > 0;
+                const canClickDone = isCurrentLessonCompleted || isVideoFinished;
+
+                return (
+                  <button 
+                    onClick={() => toggleComplete(currentLesson.id, 100)}
+                    disabled={!canClickDone}
+                    className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+                      !canClickDone 
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                        : isCurrentLessonCompleted 
+                          ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-600'
+                          : 'bg-slate-900 text-white hover:bg-blue-600'
+                    }`}
+                  >
+                    {!canClickDone ? (
+                      <><span>🔒</span> Vidéo en cours...</>
+                    ) : isCurrentLessonCompleted ? (
+                      <><span>✓</span> Terminée (Annuler)</>
+                    ) : (
+                      "Marquer comme terminée"
+                    )}
+                  </button>
+                );
+              })()}
             </div>
 
             <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">
               {currentLesson ? currentLesson.content : course.description}
+            </p>
               {/* ================= SECTION QUIZ ÉTAPE PAR ÉTAPE ================= */}
             {currentLesson?.questions && currentLesson.questions.length > 0 && (
               <div className="mt-12 pt-8 border-t border-slate-200">
@@ -361,7 +519,7 @@ export default function CoursePlayer() {
               </div>
             )}
             {/* ================= FIN DU QUIZ ================= */}
-            </p>
+            
 
             {/* BOUTONS PRÉCÉDENT / SUIVANT */}
             <div className="flex items-center justify-between pt-6 mt-8 border-t border-slate-100">
@@ -390,9 +548,10 @@ export default function CoursePlayer() {
               >
                 Chapitre suivant <span>→</span>
               </button>
-            </div>
-
-          </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* SOMMAIRE DES LEÇONS (À droite) */}
@@ -450,29 +609,24 @@ export default function CoursePlayer() {
             )}
           </div>
           
-          {/* ⬇️ COLONNE À COLLER EXACTEMENT ICI (Juste avant </aside>) ⬇️ */}
-          {!nextLesson && (
-            <div className="p-6 bg-slate-50 border-t border-slate-200 mt-auto">
-              {validationResult ? (
-                <div className={`p-4 rounded-xl text-center ${validationResult.status === 'VALIDATED' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                  <h4 className="font-black text-xl mb-2">
-                    {validationResult.status === 'VALIDATED' ? '🎓 Validé !' : '❌ Non Validé'}
-                  </h4>
-                  <p className="text-sm font-bold">Score final : {validationResult.score}%</p>
-                  <p className="text-xs mt-1">Requis : {validationResult.requiredScore}%</p>
-                  <p className="text-xs mt-1">Temps passé : {validationResult.durationHours} heures</p>
-                </div>
-              ) : (
-                <button 
-                  onClick={handleValidateCourse}
-                  className="w-full py-4 bg-purple-600 text-white font-black rounded-xl shadow-lg hover:bg-purple-700 hover:-translate-y-1 transition-all"
-                >
-                  Valider la formation
-                </button>
-              )}
+          {/* BOUTON EXAMEN FINAL (Débloqué si toutes les leçons sont faites) */}
+          {!validationResult && (
+            <div className="p-6 bg-slate-50 border-t border-slate-200 mt-auto shrink-0">
+              <button 
+                onClick={() => setShowFinalExam(true)}
+                disabled={completedLessons < course.lessons.length}
+                className={`w-full py-4 font-black rounded-xl shadow-lg transition-all ${
+                  completedLessons < course.lessons.length 
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                  : showFinalExam 
+                    ? 'bg-purple-700 text-white ring-4 ring-purple-300' 
+                    : 'bg-purple-600 text-white hover:bg-purple-700 hover:-translate-y-1'
+                }`}
+              >
+                {completedLessons < course.lessons.length ? '🔒 Terminez les vidéos' : 'Passer l\'Examen Final 🎓'}
+              </button>
             </div>
           )}
-          {/* ⬆️ FIN DU COLLAGE ⬆️ */}
 
         </aside>
 
