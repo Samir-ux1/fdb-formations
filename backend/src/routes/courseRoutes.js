@@ -33,6 +33,7 @@ router.delete('/:courseId/lessons/:lessonId/questions/:questionId', verifyToken,
 
 // Routes pour les étudiants
 router.get('/:courseId/students', verifyToken, isInstructor, courseController.getCourseStudents);
-router.post('/:courseId/students/:studentId/reset', verifyToken, isInstructor, courseController.resetStudentProgress);
+router.post('/:courseId/students/:studentId/reset', verifyToken, isInstructor, courseController.resetStudent);
+router.post('/:courseId/students/:studentId/status', verifyToken, isInstructor, courseController.overrideStudentStatus);
 // CETTE LIGNE DOIT TOUJOURS ÊTRE LA TOUTE DERNIÈRE !
 module.exports = router;

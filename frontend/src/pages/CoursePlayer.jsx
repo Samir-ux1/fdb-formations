@@ -21,6 +21,7 @@ export default function CoursePlayer() {
   const [isAnswered, setIsAnswered] = useState(false); // Est-ce qu'il a répondu à la question actuelle ?
   const [score, setScore] = useState(0); // Le score total
   const [quizFinished, setQuizFinished] = useState(false); // Le quiz est-il terminé ?
+  const [savedScoreOn20, setSavedScoreOn20] = useState(null); // <-- NOUVEAU
 
   // ÉTATS EXAMEN FINAL
   const [showFinalExam, setShowFinalExam] = useState(false);
@@ -97,21 +98,32 @@ export default function CoursePlayer() {
     }
   }, [courseId]);
 
-   // Réinitialiser le quiz quand on change de leçon
+ // --- CHARGEMENT D'UNE LEÇON (Vérifier la mémoire) ---
   useEffect(() => {
-    setCurrentQuestionIndex(0);
-    setSelectedOption(null);
-    setIsAnswered(false);
-    setScore(0);
-    setQuizFinished(false);
+    if (!currentLesson) return;
+
+    // On cherche si l'étudiant a déjà une progression sauvegardée pour cette leçon
+    const progress = currentLesson.progresses?.length > 0 ? currentLesson.progresses[0] : null;
+
+    if (progress && currentLesson.questions && currentLesson.questions.length > 0) {
+      // SI LE QUIZ A DÉJÀ ÉTÉ FAIT : On affiche directement l'écran de résultat !
+      setQuizFinished(true);
+      setSavedScoreOn20(progress.score); // On récupère sa note depuis la BDD
+    } else {
+      // SINON : On remet le quiz à zéro
+      setCurrentQuestionIndex(0);
+      setSelectedOption(null);
+      setIsAnswered(false);
+      setScore(0);
+      setQuizFinished(false);
+      setSavedScoreOn20(null);
+    }
+    
+    setIsVideoFinished(false);
   }, [currentLesson]);
 
-  useEffect(() => {
-    setIsVideoFinished(false);
-  }, [currentLesson?.id]);
-
   // FONCTION POUR COCHER/DÉCOCHER UNE LEÇON
-  const toggleComplete = async (lessonId, quizScore = 100) => {
+  const toggleComplete = async (lessonId, quizScore = 20) => {
     try {
       const token = localStorage.getItem('token'); // <-- LA LIGNE MAGIQUE EST LÀ !
       
@@ -128,69 +140,38 @@ export default function CoursePlayer() {
 
   
 
-  // --- CALCULATION DU RÉSULTAT FINAL ---
-  const handleValidateCourse = async () => {
-    if (!window.confirm("Valider l'examen ? Votre note finale sera calculée.")) return;
+  // --- CALCULATION DU RÉSULTAT FINAL SUR 20 ---
+  const handleSubmitExam = async () => {
+    if (!window.confirm("Valider l'examen ? Votre note finale sera calculée sur 20.")) return;
     
-    // 1. Calcul de la moyenne de tous les quiz de chapitres
+    // 1. Moyenne des quiz de chapitres (sur 20)
     const completedLessons = course.lessons.filter(l => l.progresses && l.progresses.length > 0);
     let totalQuizScore = 0;
-    completedLessons.forEach(l => { totalQuizScore += (l.progresses[0].score || 100); });
+    completedLessons.forEach(l => { 
+      // On récupère le score enregistré sur 20
+      totalQuizScore += (l.progresses[0].score !== null ? l.progresses[0].score : 20); 
+    });
     const averageQuizScore = completedLessons.length > 0 ? (totalQuizScore / completedLessons.length) : 0;
 
-    // 2. Calcul du score de l'Examen Final
-    let examCorrect = 0;
-    course.examQuestions.forEach((q, index) => {
-      if (examAnswers[index] === q.correctAnswer) examCorrect++;
-    });
-    const examScore = course.examQuestions.length > 0 
-      ? Math.round((examCorrect / course.examQuestions.length) * 100) 
-      : 100; // S'il n'y a pas d'examen, on donne 100
-
-    try {
-      // 3. Envoi à l'API grades que tu as créée
-      const response = await axios.post(`http://localhost:5000/api/courses/${courseId}/grades`, {
-        quizScore: averageQuizScore,
-        examScore: examScore
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      setValidationResult(response.data.results);
-      setShowFinalExam(false);
-    } catch (error) {
-      alert("Erreur serveur : " + (error.response?.data?.message || error.message));
-    }
-  };
-
-    // --- SOUMISSION DE L'EXAMEN FINAL ---
-  const handleSubmitExam = async () => {
-    if (!window.confirm("Êtes-vous sûr de vouloir valider l'examen ? Votre note finale sera calculée.")) return;
-    
-    // 1. Calculer la note de l'examen final sur 100
+    // 2. Calcul du score de l'Examen Final (sur 20)
     let examCorrect = 0;
     const totalExamQs = course.examQuestions?.length || 0;
-    
     if (totalExamQs > 0) {
       course.examQuestions.forEach((q, index) => {
         if (examAnswers[index] === q.correctAnswer) examCorrect++;
       });
     }
-    const calculatedExamScore = totalExamQs > 0 ? Math.round((examCorrect / totalExamQs) * 100) : 100;
-    
-    // 2. Note des petits quiz (On part du principe que c'est 100% car il a fallu tout valider pour arriver ici)
-    const averageQuizScore = 100;
+    const examScore = totalExamQs > 0 ? Math.round((examCorrect / totalExamQs) * 20) : 20;
 
     try {
       const activeToken = token || localStorage.getItem('token'); 
-      const response = await axios.post(`http://localhost:5000/api/courses//${courseId}/grades`, {
+      const response = await axios.post(`http://localhost:5000/api/courses/${courseId}/grades`, {
         quizScore: averageQuizScore,
-        examScore: calculatedExamScore
+        examScore: examScore
       }, {
         headers: { Authorization: `Bearer ${activeToken}` }
       });
       
-      // 3. On affiche le résultat (Trophée ou Échec)
       setValidationResult(response.data.results);
       setShowFinalExam(false);
     } catch (error) {
@@ -205,19 +186,25 @@ export default function CoursePlayer() {
   const progressPercentage = course.lessons.length === 0 ? 0 : Math.round((completedLessons / course.lessons.length) * 100);
   const isCurrentLessonCompleted = currentLesson?.progresses?.length > 0;
 
-  // FONCTION MAGIQUE : S'active quand la vidéo se termine
+  // --- GESTION DE LA VIDÉO ---
   const handleVideoEnd = () => {
-    setIsVideoFinished(true); // <-- AJOUTE CETTE LIGNE (Débloque le bouton)
+    setIsVideoFinished(true);
 
+    // 1. SI LA LEÇON A UN QUIZ : On s'arrête là ! L'étudiant doit faire le quiz.
+    if (currentLesson?.questions && currentLesson.questions.length > 0) return;
+
+    // 2. S'IL N'Y A PAS DE QUIZ : On valide automatiquement la vidéo avec 20/20.
     const isCurrentLessonCompleted = currentLesson?.progresses?.length > 0;
     if (!isCurrentLessonCompleted) {
-      toggleComplete(currentLesson.id, 100);
+      toggleComplete(currentLesson.id, 20); // Note parfaite de 20/20 par défaut
     }
 
+    // On passe à la suite
     if (nextLesson) {
       setTimeout(() => setCurrentLesson(nextLesson), 2000); 
     }
   };
+    
 
   // --- CALCUL DE LA NAVIGATION (Précédent / Suivant) ---
   const currentIndex = course.lessons.findIndex(l => l.id === currentLesson?.id);
@@ -239,20 +226,20 @@ export default function CoursePlayer() {
   };
 
   const handleNextQuestion = () => {
-    // S'il reste des questions, on passe à la suivante
     if (currentQuestionIndex < currentLesson.questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedOption(null);
       setIsAnswered(false);
     } else {
-      // Sinon, on a fini le Quiz !
+      // Le Quiz est fini !
       setQuizFinished(true);
       
-      // Si le score est parfait (100%), on valide la leçon automatiquement
-      // Note: On utilise (score) tel qu'il est, car il a déjà été mis à jour au clic précédent
-      if (score === currentLesson.questions.length && !isCurrentLessonCompleted) {
-        toggleComplete(currentLesson.id);
-      }
+      // On calcule la note sur 20
+      const scoreSur20 = Math.round((score / currentLesson.questions.length) * 20);
+      setSavedScoreOn20(scoreSur20); // On affiche la note
+
+      // On sauvegarde dans la base de données
+      toggleComplete(currentLesson.id, scoreSur20);
     }
   };
 
@@ -298,11 +285,11 @@ export default function CoursePlayer() {
                 {validationResult.isValidated ? 'Formation Validée !' : 'Échec de la validation'}
               </h2>
               <div className="bg-slate-50 p-8 rounded-2xl max-w-md mx-auto space-y-4 mb-8 text-left border border-slate-100">
-                <p className="flex justify-between text-lg text-slate-600"><span>Moyenne des Quiz (30%) :</span> <strong className="text-slate-900">{validationResult.quizScore}/100</strong></p>
-                <p className="flex justify-between text-lg text-slate-600"><span>Examen Final (70%) :</span> <strong className="text-slate-900">{validationResult.examScore}/100</strong></p>
+                <p className="flex justify-between text-lg text-slate-600"><span>Moyenne des Quiz (30%) :</span> <strong className="text-slate-900">{validationResult.quizScore}/20</strong></p>
+                <p className="flex justify-between text-lg text-slate-600"><span>Examen Final (70%) :</span> <strong className="text-slate-900">{validationResult.examScore}/20</strong></p>
                 <div className="h-px bg-slate-200 my-4"></div>
                 <p className="flex justify-between text-2xl text-blue-600 font-black">
-                  <span>Note Finale :</span> <span>{validationResult.finalGrade}/100</span>
+                  <span>Note Finale :</span> <span>{validationResult.finalGrade}/20</span>
                 </p>
               </div>
               <Link to="/dashboard" className="inline-block px-10 py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors">
@@ -386,8 +373,8 @@ export default function CoursePlayer() {
 
                 return (
                   <button 
-                    onClick={() => toggleComplete(currentLesson.id, 100)}
-                    disabled={!canClickDone}
+                    onClick={() => toggleComplete(currentLesson.id, 20)} // <-- CORRIGÉ ICI (20 au lieu de 100)
+                    disabled={!canClickDone || (currentLesson.questions && currentLesson.questions.length > 0)}
                     className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
                       !canClickDone 
                         ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
@@ -488,34 +475,33 @@ export default function CoursePlayer() {
                   </div>
 
                 ) : (
-                  // LE QUIZ EST TERMINÉ (RÉSULTATS)
-                  <div className="bg-white p-10 rounded-3xl border border-slate-200 text-center shadow-lg">
-                    <div className="text-6xl mb-6">
-                      {score === currentLesson.questions.length ? "🏆" : score > 0 ? "👍" : "😅"}
-                    </div>
-                    <h3 className="text-3xl font-black text-slate-900 mb-2">Quiz Terminé !</h3>
-                    <p className="text-lg text-slate-500 mb-8">
-                      Vous avez obtenu <span className="font-bold text-indigo-600">{score} bonne(s) réponse(s)</span> sur {currentLesson.questions.length}.
-                    </p>
+                      <div className="bg-white p-10 rounded-3xl border border-slate-200 text-center shadow-lg">
+                        <div className="text-6xl mb-6">
+                          {savedScoreOn20 === 20 ? "🏆" : savedScoreOn20 >= 10 ? "👍" : "😅"}
+                        </div>
+                        <h3 className="text-3xl font-black text-slate-900 mb-2">Quiz Terminé !</h3>
+                        <p className="text-lg text-slate-500 mb-8">
+                          Note sauvegardée : <span className="font-bold text-indigo-600 text-2xl ml-2">{savedScoreOn20} / 20</span>
+                        </p>
 
-                    {score === currentLesson.questions.length ? (
-                      <div className="p-4 bg-green-100 text-green-700 rounded-xl font-bold mb-8">
-                        Parfait ! Cette leçon est maintenant validée.
-                      </div>
-                    ) : (
-                      <div className="p-4 bg-amber-100 text-amber-700 rounded-xl font-bold mb-8">
-                        Il faut avoir tout juste pour valider la leçon !
+                        {savedScoreOn20 >= 10 ? (
+                          <div className="p-4 bg-green-100 text-green-700 rounded-xl font-bold mb-8">
+                            Félicitations, ce chapitre est validé !
+                          </div>
+                        ) : (
+                          <div className="p-4 bg-amber-100 text-amber-700 rounded-xl font-bold mb-8">
+                            Il faut la moyenne (10/20) pour valider !
+                          </div>
+                        )}
+
+                        <button 
+                          onClick={handleRetryQuiz}
+                          className="px-8 py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors"
+                        >
+                          ↻ Recommencer pour améliorer ma note
+                        </button>
                       </div>
                     )}
-
-                    <button 
-                      onClick={handleRetryQuiz}
-                      className="px-8 py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors"
-                    >
-                      ↻ Recommencer le Quiz
-                    </button>
-                  </div>
-                )}
               </div>
             )}
             {/* ================= FIN DU QUIZ ================= */}

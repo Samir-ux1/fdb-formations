@@ -313,107 +313,93 @@ exports.validateCourse = async (req, res) => {
   }
 };
 
-// --- RÉCUPÉRER LES ÉTUDIANTS INSCRITS À CE COURS ---
+// --- RÉCUPÉRER LES ÉTUDIANTS D'UN COURS (AVEC DÉTAILS) ---
 exports.getCourseStudents = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
-
-    // Vérifier si l'instructeur est bien le créateur
-    const course = await prisma.course.findUnique({ where: { id: courseId } });
-    if (!course || course.instructorId !== req.user.userId) {
-      return res.status(403).json({ message: "Accès refusé." });
-    }
-
-    // Récupérer les inscriptions avec les infos de l'utilisateur
-    const students = await prisma.enrollment.findMany({
-      where: { courseId: courseId },
+    const enrollments = await prisma.enrollment.findMany({
+      where: { courseId },
       include: {
-        user: { select: { id: true, name: true, email: true, avatarUrl: true } }
-      },
-      orderBy: { createdAt: 'desc' }
+        user: { 
+          select: { 
+            id: true, name: true, email: true, avatarUrl: true,
+            // On récupère le score de chaque leçon terminée par cet étudiant pour CE cours
+            lessonProgresses: {
+              where: { lesson: { courseId: courseId } },
+              include: { lesson: { select: { title: true, order: true } } },
+              orderBy: { lesson: { order: 'asc' } }
+            }
+          } 
+        }
+      }
     });
-
-    res.status(200).json(students);
+    res.status(200).json(enrollments);
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur.", error: error.message });
   }
 };
 
-// --- DONNER UNE SECONDE CHANCE (RÉINITIALISER LA PROGRESSION) ---
-exports.resetStudentProgress = async (req, res) => {
+// --- SOUMETTRE LES NOTES ET VALIDER LA FORMATION (SUR 20) ---
+exports.submitGrades = async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId);
+    const userId = req.user.userId;
+    const { quizScore, examScore } = req.body; // Les notes sont maintenant sur 20
+
+    // Calcul de la note finale sur 20 (30% Quiz + 70% Examen)
+    const finalGrade = parseFloat(((quizScore * 0.3) + (examScore * 0.7)).toFixed(2)); // toFixed(2) garde 2 chiffres après la virgule
+
+    // L'étudiant valide s'il a au moins 10/20
+    const isValidated = finalGrade >= 10;
+
+    const updatedEnrollment = await prisma.enrollment.update({
+      where: { userId_courseId: { userId, courseId } },
+      data: {
+        quizScore,
+        examScore,
+        finalGrade,
+        isValidated,
+        status: isValidated ? 'VALIDATED' : 'FAILED',
+        completedAt: new Date() // Enregistre l'heure de fin
+      }
+    });
+
+    res.status(200).json({ 
+      message: isValidated ? "Validé !" : "Échec.",
+      results: { quizScore, examScore, finalGrade, isValidated }
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: "Erreur de notation.", error: error.message });
+  }
+};
+
+// --- RÉINITIALISER UN ÉTUDIANT (Correction du Bug) ---
+exports.resetStudent = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
     const studentId = parseInt(req.params.studentId);
 
-    // Vérifier la sécurité
-    const course = await prisma.course.findUnique({ where: { id: courseId } });
-    if (!course || course.instructorId !== req.user.userId) {
-      return res.status(403).json({ message: "Accès refusé." });
-    }
-
-    // 1. Remettre l'inscription au statut "IN_PROGRESS" et effacer la note
+    // 1. Remettre l'inscription à zéro
     await prisma.enrollment.update({
-      where: { userId_courseId: { userId: studentId, courseId: courseId } },
-      data: { status: "IN_PROGRESS", finalScore: null, completedAt: null, createdAt: new Date() }
+      where: { userId_courseId: { userId: studentId, courseId } },
+      data: { status: 'IN_PROGRESS', quizScore: null, examScore: null, finalGrade: null, isValidated: false, completedAt: null }
     });
 
     // 2. Trouver toutes les leçons de ce cours
-    const lessons = await prisma.lesson.findMany({ where: { courseId: courseId } });
+    const lessons = await prisma.lesson.findMany({ where: { courseId } });
     const lessonIds = lessons.map(l => l.id);
 
-    // 3. Supprimer les coches vertes (progressions) de cet étudiant pour ces leçons
+    // 3. Supprimer de manière sécurisée la progression
     if (lessonIds.length > 0) {
       await prisma.lessonProgress.deleteMany({
         where: { userId: studentId, lessonId: { in: lessonIds } }
       });
     }
 
-    res.status(200).json({ message: "La formation a été réinitialisée pour cet étudiant !" });
+    res.status(200).json({ message: "Progression réinitialisée." });
   } catch (error) {
-    res.status(500).json({ message: "Erreur lors de la réinitialisation.", error: error.message });
-  }
-};
-
-
-// --- SOUMETTRE LES NOTES ET VALIDER LA FORMATION ---
-exports.submitGrades = async (req, res) => {
-  try {
-    const courseId = parseInt(req.params.courseId);
-    const userId = req.user.userId;
-    const { quizScore, examScore } = req.body; // Les notes envoyées (sur 100)
-
-    // 1. Calcul de la note finale avec ta règle : 30% Quiz + 70% Examen
-    const finalGrade = (quizScore * 0.3) + (examScore * 0.7);
-
-    // 2. Vérification : On dit que c'est validé si la moyenne est au moins de 50/100
-    // (Tu peux changer le 50 par la moyenne que tu exiges)
-    const isValidated = finalGrade >= 50;
-
-    // 3. Mise à jour dans la base de données
-    const updatedEnrollment = await prisma.enrollment.update({
-      where: {
-        userId_courseId: { userId, courseId }
-      },
-      data: {
-        quizScore,
-        examScore,
-        finalGrade,
-        isValidated
-      }
-    });
-
-    res.status(200).json({ 
-      message: isValidated ? "Félicitations, formation validée !" : "Formation non validée, il faut repasser l'examen.",
-      results: {
-        quizScore,
-        examScore,
-        finalGrade,
-        isValidated
-      }
-    });
-
-  } catch (error) {
-    res.status(500).json({ message: "Erreur lors de la notation.", error: error.message });
+    res.status(500).json({ message: "Erreur.", error: error.message });
   }
 };
 
@@ -457,5 +443,25 @@ exports.deleteExamQuestion = async (req, res) => {
     res.status(200).json({ message: "Question supprimée avec succès." });
   } catch (error) {
     res.status(500).json({ message: "Erreur lors de la suppression.", error: error.message });
+  }
+};
+
+// --- FORCER LA VALIDATION OU L'ÉCHEC MANUELLEMENT ---
+exports.overrideStudentStatus = async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId);
+    const studentId = parseInt(req.params.studentId);
+    const { status } = req.body; // 'VALIDATED' ou 'FAILED'
+
+    await prisma.enrollment.update({
+      where: { userId_courseId: { userId: studentId, courseId } },
+      data: { 
+        status: status,
+        isValidated: status === 'VALIDATED'
+      }
+    });
+    res.status(200).json({ message: "Le statut de l'étudiant a été forcé manuellement." });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la modification du statut.", error: error.message });
   }
 };

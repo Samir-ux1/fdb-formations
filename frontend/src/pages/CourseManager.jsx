@@ -8,6 +8,8 @@ export default function CourseManager() {
   
   const [course, setCourse] = useState(null);
   const [students, setStudents] = useState([]); // Nouveau : Liste des étudiants
+  // NOUVEAU : Gérer la modale des détails d'un étudiant
+  const [selectedStudent, setSelectedStudent] = useState(null);
   const [activeTab, setActiveTab] = useState('CONTENT'); // 'CONTENT' ou 'STUDENTS'
 
   const [newLesson, setNewLesson] = useState({ title: '', content: '', videoUrl: '', order: 1 });
@@ -194,6 +196,36 @@ export default function CourseManager() {
       });
       fetchCourse();
     } catch (error) { alert("Erreur."); }
+  };
+
+  // Calculer le temps passé entre l'inscription et l'examen
+  const calculateDuration = (start, end) => {
+    if (!start) return "N/A";
+    const startDate = new Date(start);
+    const endDate = end ? new Date(end) : new Date(); // Si pas terminé, on utilise l'heure actuelle
+    
+    const diffMs = endDate - startDate;
+    const diffHrs = Math.floor(diffMs / 36e5);
+    const diffMins = Math.round(((diffMs % 36e5) / 60000));
+    
+    if (diffHrs === 0) return `${diffMins} minutes`;
+    return `${diffHrs}h ${diffMins}m`;
+  };
+
+  // Forcer le statut de l'étudiant
+  const handleOverrideStatus = async (studentId, status) => {
+    if (!window.confirm(`Voulez-vous vraiment passer cet étudiant en : ${status === 'VALIDATED' ? 'VALIDÉ' : 'ÉCHEC'} ?`)) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`http://localhost:5000/api/courses/${courseId}/students/${studentId}/status`, { status }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert("Statut mis à jour !");
+      setSelectedStudent(null); // On ferme la modale
+      fetchStudents(); // On rafraîchit la liste
+    } catch (error) {
+      alert("Erreur lors de la mise à jour du statut.");
+    }
   };
 
   if (!course) return <div className="p-8 text-center">Chargement...</div>;
@@ -390,7 +422,11 @@ export default function CourseManager() {
                   <tr><td colSpan="4" className="px-6 py-8 text-center text-slate-500">Aucun étudiant n'a encore débloqué ce cours.</td></tr>
                 ) : (
                   students.map(student => (
-                    <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                    <tr 
+                      key={student.id} 
+                      onClick={() => setSelectedStudent(student)} // <-- AJOUTE CECI !
+                      className="hover:bg-slate-100 transition-colors cursor-pointer"
+                    >
                       <td className="px-6 py-4 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold overflow-hidden">
                           {student.user.avatarUrl ? <img src={student.user.avatarUrl} className="w-full h-full object-cover" alt="avatar"/> : student.user.name.charAt(0)}
@@ -406,9 +442,9 @@ export default function CourseManager() {
                         {student.status === 'FAILED' && <span className="px-3 py-1 bg-red-100 text-red-700 font-bold text-xs rounded-full">Échec ❌</span>}
                       </td>
                       <td className="px-6 py-4">
-                        {student.finalScore !== null ? (
-                          <p className={`font-bold ${student.status === 'VALIDATED' ? 'text-green-600' : 'text-red-600'}`}>
-                            {student.finalScore}% <span className="text-xs text-slate-400 font-normal">/ {course.passingScore}%</span>
+                        {student.finalGrade !== null ? (
+                          <p className={`font-bold text-lg ${student.status === 'VALIDATED' ? 'text-green-600' : 'text-red-600'}`}>
+                            {student.finalGrade} <span className="text-xs text-slate-400 font-normal">/ 20</span>
                           </p>
                         ) : (
                           <span className="text-slate-400">-</span>
@@ -520,6 +556,105 @@ export default function CourseManager() {
                 <button type="submit" className="w-1/2 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">Sauvegarder</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODALE 3 : DÉTAILS ET SUIVI D'UN ÉTUDIANT */}
+      {/* ========================================================= */}
+      {selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl animate-in zoom-in duration-200 flex flex-col">
+            
+            {/* En-tête */}
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-3xl">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xl overflow-hidden">
+                  {selectedStudent.user.avatarUrl ? <img src={selectedStudent.user.avatarUrl} className="w-full h-full object-cover" alt="avatar"/> : selectedStudent.user.name.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">{selectedStudent.user.name}</h3>
+                  <p className="text-slate-500 text-sm">{selectedStudent.user.email}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedStudent(null)} className="w-10 h-10 bg-white border border-slate-200 rounded-full text-slate-500 hover:bg-slate-200 font-bold">X</button>
+            </div>
+
+            {/* Contenu */}
+            <div className="p-6 space-y-6">
+              
+              {/* Statistiques Globales */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                  <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">Date de déblocage</p>
+                  <p className="font-bold text-slate-800">{new Date(selectedStudent.createdAt).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p>
+                </div>
+                <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
+                  <p className="text-xs font-bold text-purple-500 uppercase tracking-wider mb-1">Examen soumis le</p>
+                  <p className="font-bold text-slate-800">
+                    {selectedStudent.completedAt ? new Date(selectedStudent.completedAt).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' }) : "Pas encore soumis"}
+                  </p>
+                </div>
+                <div className="col-span-2 p-4 bg-slate-100 rounded-2xl border border-slate-200 flex justify-between items-center">
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Temps passé sur la formation</p>
+                    <p className="font-black text-xl text-slate-900">{calculateDuration(selectedStudent.createdAt, selectedStudent.completedAt)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Note Finale</p>
+                    <p className={`font-black text-2xl ${selectedStudent.status === 'VALIDATED' ? 'text-green-600' : selectedStudent.status === 'FAILED' ? 'text-red-600' : 'text-slate-900'}`}>
+                      {selectedStudent.finalGrade !== null ? `${selectedStudent.finalGrade}/20` : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Détails par leçon */}
+              <div>
+                <h4 className="font-bold text-slate-800 mb-3">Détail des chapitres (Quiz)</h4>
+                <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-2xl divide-y divide-slate-100">
+                  {(!selectedStudent.user.lessonProgresses || selectedStudent.user.lessonProgresses.length === 0) ? (
+                    <p className="p-4 text-slate-500 text-sm italic">Aucun chapitre terminé.</p>
+                  ) : (
+                    selectedStudent.user.lessonProgresses.map((progress, idx) => (
+                      <div key={idx} className="p-3 flex justify-between items-center bg-white hover:bg-slate-50">
+                        <p className="text-sm font-medium text-slate-700">
+                          {progress.lesson.order}. {progress.lesson.title}
+                        </p>
+                        <span className={`px-2 py-1 rounded-lg text-xs font-bold ${(progress.score ?? 20) >= 10 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          Score : {progress.score ?? 20} / 20
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Score Examen */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex justify-between items-center">
+                <span className="font-bold text-slate-700">Note Examen Final (70%) :</span>
+                <span className="font-black text-lg">{selectedStudent.examScore !== null ? `${selectedStudent.examScore}/20` : 'Non passé'}</span>
+              </div>
+              
+            </div>
+
+            {/* Actions Administratives (Forcer le statut) */}
+            <div className="p-6 border-t border-slate-200 bg-slate-50 rounded-b-3xl flex gap-4">
+              <button 
+                onClick={() => handleOverrideStatus(selectedStudent.user.id, 'FAILED')}
+                className="w-1/2 py-3 bg-white border-2 border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-colors"
+              >
+                Non Valider ❌
+              </button>
+              <button 
+                onClick={() => handleOverrideStatus(selectedStudent.user.id, 'VALIDATED')}
+                className="w-1/2 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-colors shadow-lg shadow-green-600/20"
+              >
+                Valider 🎓
+              </button>
+            </div>
+
           </div>
         </div>
       )}

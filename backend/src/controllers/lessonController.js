@@ -59,32 +59,40 @@ exports.deleteLesson = async (req, res) => {
   }
 };
 
-// --- MARQUER UNE LEÇON COMME TERMINÉE / NON TERMINÉE ---
+// --- SAUVEGARDER OU ANNULER UNE LEÇON (AVEC MÉMOIRE DU SCORE) ---
 exports.toggleProgress = async (req, res) => {
   try {
     const lessonId = parseInt(req.params.lessonId);
     const userId = req.user.userId;
-    
-    // NOUVEAU : On récupère le score du quiz si tu l'envoies depuis React
     const { score } = req.body; 
 
     const existingProgress = await prisma.lessonProgress.findUnique({
       where: { userId_lessonId: { userId, lessonId } }
     });
 
+    // 1. Si on a DÉJÀ une progression
     if (existingProgress) {
-      await prisma.lessonProgress.delete({ where: { id: existingProgress.id } });
-      return res.status(200).json({ completed: false });
-    } else {
-      // NOUVEAU : Si aucun score n'est fourni, on met 100% par défaut !
+      if (score !== undefined) {
+        // S'il refait le quiz, on MET À JOUR sa note (on ne l'efface surtout pas !)
+        const newScore = parseFloat(score);
+        await prisma.lessonProgress.update({
+          where: { id: existingProgress.id },
+          data: { score: newScore }
+        });
+        return res.status(200).json({ completed: true, score: newScore });
+      } else {
+        // S'il clique sur "Annuler" pour une vidéo simple (sans quiz), on l'efface
+        await prisma.lessonProgress.delete({ where: { id: existingProgress.id } });
+        return res.status(200).json({ completed: false });
+      }
+    } 
+    // 2. Si c'est la PREMIÈRE FOIS qu'il termine la leçon
+    else {
+      const newScore = score !== undefined ? parseFloat(score) : 20; // 20/20 par défaut si pas de quiz
       await prisma.lessonProgress.create({ 
-        data: { 
-          userId, 
-          lessonId,
-          score: score !== undefined ? parseFloat(score) : 100 
-        } 
+        data: { userId, lessonId, score: newScore } 
       });
-      return res.status(200).json({ completed: true });
+      return res.status(200).json({ completed: true, score: newScore });
     }
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur.", error: error.message });
