@@ -146,15 +146,16 @@ export default function InstructorPortal() {
           </div>
 
           {/* TABLEAU DES COURS */}
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200">
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-bold">
                 <tr>
-                  <th className="px-6 py-4">Nom de la formation</th>
+                  <th className="px-6 py-4 rounded-tl-3xl">Nom de la formation</th>
                   <th className="px-6 py-4">Clé Secrète</th>
                   <th className="px-6 py-4">Leçons</th>
                   <th className="px-6 py-4">Inscrits</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-6 py-4">Taux de réussite</th>
+                  <th className="px-6 py-4 text-right rounded-tr-3xl">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -181,6 +182,48 @@ export default function InstructorPortal() {
                       <td className="px-6 py-4 text-slate-600 font-medium">
                         {course._count.enrollments} étudiants
                       </td>
+                      <td className="px-6 py-4 relative group">
+                          
+                          {/* Le texte toujours visible */}
+                          {course.successRate !== null ? (
+                            <div className="flex items-center gap-2 cursor-help">
+                              <span className={`font-black ${course.successRate >= 50 ? 'text-green-600' : 'text-red-600'}`}>
+                                {course.successRate}%
+                              </span>
+                              <span className="text-xs text-slate-400">
+                                ({course.totalEvaluated} examens)
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-xs italic cursor-help">Pas d'examen</span>
+                          )}
+
+                          {/* L'INFO-BULLE (Cachée par défaut, s'affiche avec group-hover) */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-4 bg-slate-900 text-white text-xs rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-2xl pointer-events-none">
+                            <p className="font-bold mb-3 border-b border-slate-700 pb-2 text-center text-slate-200">
+                              Détails des étudiants ({course._count.enrollments})
+                            </p>
+                            
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-slate-300 flex items-center gap-1"><span>🎓</span> Validés :</span>
+                              <span className="font-black text-green-400 text-sm">{course.validatedCount}</span>
+                            </div>
+                            
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-slate-300 flex items-center gap-1"><span>❌</span> Échecs :</span>
+                              <span className="font-black text-red-400 text-sm">{course.failedCount}</span>
+                            </div>
+                            
+                            <div className="flex justify-between items-center pt-2 border-t border-slate-700">
+                              <span className="text-slate-400 flex items-center gap-1"><span>⏳</span> En cours (Non validés) :</span>
+                              <span className="font-black text-blue-400 text-sm">{course.inProgressCount}</span>
+                            </div>
+
+                            {/* Le petit triangle pointu en bas de la bulle */}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-slate-900"></div>
+                          </div>
+
+                        </td>
                       <td className="px-6 py-4 text-right">
                         {/* Plus tard on fera le bouton pour ajouter des vidéos ici */}
                         <button 

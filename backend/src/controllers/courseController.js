@@ -168,7 +168,7 @@ exports.getCourseById = async (req, res) => {
   }
 };
 
-// --- RÉCUPÉRER LES COURS CRÉÉS PAR L'INSTRUCTEUR ---
+// --- RÉCUPÉRER LES COURS CRÉÉS PAR L'INSTRUCTEUR (AVEC STATISTIQUES DÉTAILLÉES) ---
 exports.getInstructorCourses = async (req, res) => {
   try {
     const instructorId = req.user.userId;
@@ -177,13 +177,39 @@ exports.getInstructorCourses = async (req, res) => {
       where: { instructorId },
       include: {
         _count: {
-          select: { enrollments: true, lessons: true } // On compte les élèves et les leçons
+          select: { enrollments: true, lessons: true }
+        },
+        enrollments: {
+          select: { status: true }
         }
       },
       orderBy: { createdAt: 'desc' }
     });
 
-    res.status(200).json(courses);
+    const coursesWithStats = courses.map(course => {
+      // On compte le nombre exact pour chaque statut
+      const validatedCount = course.enrollments.filter(e => e.status === 'VALIDATED').length;
+      const failedCount = course.enrollments.filter(e => e.status === 'FAILED').length;
+      const inProgressCount = course.enrollments.filter(e => e.status === 'IN_PROGRESS').length; // Ceux en cours (non validés)
+
+      const totalEvaluated = validatedCount + failedCount; // Ceux qui ont passé l'examen
+
+      // Le taux de réussite en % (uniquement sur ceux qui ont passé l'examen)
+      const successRate = totalEvaluated > 0 ? Math.round((validatedCount / totalEvaluated) * 100) : null;
+
+      const { enrollments, ...courseData } = course;
+      
+      return {
+        ...courseData,
+        successRate,
+        totalEvaluated,
+        validatedCount,
+        failedCount,
+        inProgressCount // On envoie ça au frontend pour la bulle !
+      };
+    });
+
+    res.status(200).json(coursesWithStats);
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur.", error: error.message });
   }
@@ -193,7 +219,8 @@ exports.getInstructorCourses = async (req, res) => {
 exports.updateCourse = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
-    const { title, description, accessKey, imageUrl, categoryId, passingScore } = req.body;
+    // On récupère TOUTES les données, y compris categoryId et passingScore
+    const { title, description, accessKey, imageUrl, passingScore, categoryId } = req.body;
 
     // 1. Vérifier que c'est bien l'auteur du cours
     const course = await prisma.course.findUnique({ where: { id: courseId } });
@@ -201,10 +228,17 @@ exports.updateCourse = async (req, res) => {
       return res.status(403).json({ message: "Accès refusé." });
     }
 
-    // 2. Mettre à jour
+    // 2. Mettre à jour dans la base de données
     const updatedCourse = await prisma.course.update({
       where: { id: courseId },
-      data: { title, description, accessKey, imageUrl, categoryId: categoryId ? parseInt(categoryId) : null, passingScore }
+      data: { 
+        title, 
+        description, 
+        accessKey, 
+        imageUrl,
+        passingScore: passingScore ? parseInt(passingScore) : 70, // Mise à jour du score
+        categoryId: categoryId ? parseInt(categoryId) : null      // Mise à jour de la branche
+      }
     });
 
     res.status(200).json({ message: "Formation mise à jour !", course: updatedCourse });
