@@ -8,6 +8,7 @@ export default function CourseManager() {
   
   const [course, setCourse] = useState(null);
   const [students, setStudents] = useState([]); // Nouveau : Liste des étudiants
+  const [categories, setCategories] = useState([]); // <-- NOUVEAU : Liste des branches
   // NOUVEAU : Gérer la modale des détails d'un étudiant
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [activeTab, setActiveTab] = useState('CONTENT'); // 'CONTENT' ou 'STUDENTS'
@@ -56,9 +57,19 @@ export default function CourseManager() {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/categories');
+      setCategories(response.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   useEffect(() => {
     fetchCourse();
     fetchStudents();
+    fetchCategories(); // <-- NOUVEAU : On charge les branches au démarrage
   }, [courseId]);
 
   // --- SOUMETTRE UNE QUESTION D'EXAMEN ---
@@ -251,11 +262,16 @@ export default function CourseManager() {
             <button 
               onClick={() => {
                 setEditCourseData({ 
-                  title: course.title, description: course.description, accessKey: course.accessKey, imageUrl: course.imageUrl || '', passingScore: course.passingScore || 70 
+                  title: course.title, 
+                  description: course.description, 
+                  accessKey: course.accessKey, 
+                  imageUrl: course.imageUrl || '', 
+                  passingScore: course.passingScore || 70,
+                  categoryId: course.categoryId || '' // <-- NOUVEAU : On récupère la branche actuelle
                 });
                 setIsEditingCourse(true);
               }}
-              className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors"
+              className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200"
             >
               ⚙️ Paramètres
             </button>
@@ -544,6 +560,19 @@ export default function CourseManager() {
             <h3 className="text-2xl font-bold mb-6">Paramètres de la formation</h3>
             <form onSubmit={handleUpdateCourse} className="space-y-4">
               <div><label className="block text-sm font-bold text-slate-700 mb-1">Titre</label><input type="text" value={editCourseData.title} onChange={e => setEditCourseData({...editCourseData, title: e.target.value})} className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-600" required /></div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Branche (Catégorie)</label>
+                <select 
+                  value={editCourseData.categoryId} 
+                  onChange={(e) => setEditCourseData({...editCourseData, categoryId: e.target.value})}
+                  className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-600"
+                >
+                  <option value="">-- Sans branche (Autres) --</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
               <div><label className="block text-sm font-bold text-slate-700 mb-1">Description</label><textarea value={editCourseData.description} onChange={e => setEditCourseData({...editCourseData, description: e.target.value})} className="w-full px-4 py-2 border rounded-xl outline-none h-24 focus:ring-2 focus:ring-blue-600" required /></div>
               <div><label className="block text-sm font-bold text-slate-700 mb-1">Clé Secrète</label><input type="text" value={editCourseData.accessKey} onChange={e => setEditCourseData({...editCourseData, accessKey: e.target.value})} className="w-full px-4 py-2 border rounded-xl outline-none font-mono uppercase focus:ring-2 focus:ring-blue-600" required /></div>
               <div><label className="block text-sm font-bold text-slate-700 mb-1">Lien Image</label><input type="url" value={editCourseData.imageUrl} onChange={e => setEditCourseData({...editCourseData, imageUrl: e.target.value})} className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-600" /></div>

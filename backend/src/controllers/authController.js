@@ -1,17 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
-const { Pool } = require('pg');
+const prisma = require('../config/prisma');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
-// 1. Configurer la connexion à PostgreSQL (Nouveauté Prisma 7)
-const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL
-});
-const adapter = new PrismaPg(pool);
-
-// 2. Initialiser Prisma avec l'adaptateur
-const prisma = new PrismaClient({ adapter });
 
 // --- INSCRIPTION (REGISTER) ---
 exports.register = async (req, res) => {

@@ -13,10 +13,12 @@ app.use(express.json()); // Permet de lire les données JSON (formulaires)
 // Importation des routes
 const authRoutes = require('./src/routes/authRoutes');
 const courseRoutes = require('./src/routes/courseRoutes');
+const categoryRoutes = require('./src/routes/categoryRoutes'); 
 
 // Utilisation des routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api/categories', categoryRoutes);
 app.use('/api/users', userRoutes);
 
 // Route de test

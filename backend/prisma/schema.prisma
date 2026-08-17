@@ -61,6 +61,10 @@ model Course {
   enrollments  Enrollment[]
 
   examQuestions Question[]   @relation("CourseExam")
+
+  // Relation avec la Branche (Catégorie)
+  categoryId  Int?
+  category    Category? @relation(fields: [categoryId], references: [id])
 }
 
 // 3. Table Leçons (Vidéos et contenu)
@@ -131,4 +135,12 @@ model Question {
   // Si la question appartient à l'examen final du cours :
   courseId      Int?
   course        Course?  @relation("CourseExam", fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+// 7. Table des Branches (Catégories)
+model Category {
+  id      Int      @id @default(autoincrement())
+  name    String   @unique
+  imageUrl String?  @default("https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800")
+  courses Course[] // Une branche contient plusieurs formations
 }

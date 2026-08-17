@@ -1,20 +1,7 @@
-require('dotenv').config(); // 1. OBLIGATOIRE : On force la lecture du .env en tout premier !
+require('dotenv').config();
 
-const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
-const { Pool } = require('pg');
-
-// 2. On vérifie si on utilise la base en ligne (Neon) ou locale (localhost)
-const isOnlineDB = process.env.DATABASE_URL && process.env.DATABASE_URL.includes('neon.tech');
-
-const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  // 3. On active le SSL uniquement si c'est la base de données en ligne !
-  ssl: isOnlineDB ? { rejectUnauthorized: false } : undefined 
-});
-
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = require('../config/prisma');
+const bcrypt = require('bcryptjs');
 
 // --- METTRE À JOUR LE PROFIL ---
 // ... (garde ta fonction exports.updateProfile exactement comme elle est en dessous)

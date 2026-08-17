@@ -1,18 +1,9 @@
-const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
-const { Pool } = require('pg');
-
-// Initialisation de Prisma (comme pour l'auth)
-const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL
-});
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = require('../config/prisma');
 
 // --- CRÉER UNE FORMATION ---
 exports.createCourse = async (req, res) => {
   try {
-    const { title, description, accessKey, imageUrl, passingScore } = req.body; // <-- On récupère imageUrl
+    const { title, description, accessKey, imageUrl, passingScore, categoryId } = req.body; // <-- On récupère imageUrl et categoryId
     const instructorId = req.user.userId; 
 
     const newCourse = await prisma.course.create({
@@ -22,6 +13,7 @@ exports.createCourse = async (req, res) => {
         price: 0,
         accessKey: accessKey || "SECRET123",
         imageUrl: imageUrl || undefined, // <-- On l'envoie à Prisma
+        categoryId: categoryId ? parseInt(categoryId) : null,
         instructorId
       }
     });
@@ -39,13 +31,13 @@ exports.getAllCourses = async (req, res) => {
       include: {
         // On inclut juste le nom du professeur associé à la formation
         instructor: {
-          select: { name: true } 
-        }
+          select: { name: true } },
+          category: true
       }
     });
     res.status(200).json(courses);
   } catch (error) {
-    res.status(500).json({ message: "Erreur lors de la récupération.", error: error.message });
+    res.status(500).json({ message: "Erreur", error: error.message});
   }
 };
 
@@ -201,7 +193,7 @@ exports.getInstructorCourses = async (req, res) => {
 exports.updateCourse = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
-    const { title, description, accessKey, imageUrl, passingScore } = req.body;
+    const { title, description, accessKey, imageUrl, categoryId, passingScore } = req.body;
 
     // 1. Vérifier que c'est bien l'auteur du cours
     const course = await prisma.course.findUnique({ where: { id: courseId } });
@@ -212,7 +204,7 @@ exports.updateCourse = async (req, res) => {
     // 2. Mettre à jour
     const updatedCourse = await prisma.course.update({
       where: { id: courseId },
-      data: { title, description, accessKey, imageUrl, passingScore }
+      data: { title, description, accessKey, imageUrl, categoryId: categoryId ? parseInt(categoryId) : null, passingScore }
     });
 
     res.status(200).json({ message: "Formation mise à jour !", course: updatedCourse });
