@@ -73,6 +73,7 @@ model Lesson {
   title     String
   content   String?  @db.Text // Description texte de la leçon
   videoUrl  String?  // Lien de la vidéo
+  pdfUrl    String? 
   order     Int      @default(0) // L'ordre de la leçon dans la formation
 
   // Relation avec la formation

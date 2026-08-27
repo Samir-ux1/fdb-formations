@@ -1,21 +1,39 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import { 
+  ArrowLeft, 
+  BookOpen, 
+  FolderKanban, 
+  Plus, 
+  Settings, 
+  KeyRound, 
+  Users, 
+  Target, 
+  PlaySquare, 
+  Edit, 
+  Trash2,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Image as ImageIcon,
+  AlignLeft,
+  Tag
+} from 'lucide-react';
 
 export default function InstructorPortal() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [courses, setCourses] = useState([]);
-  const [categories, setCategories] = useState([]); // Les branches
+  const [categories, setCategories] = useState([]); 
   
-  // NOUVEAU : État pour gérer les onglets (Cours ou Branches)
   const [activeTab, setActiveTab] = useState('COURSES'); 
 
-  // États pour la création d'un nouveau cours
+  // Modale Création Cours
   const [isCreating, setIsCreating] = useState(false);
   const [newCourse, setNewCourse] = useState({ title: '', description: '', accessKey: '', imageUrl: '', categoryId: '' });
   
-  // NOUVEAU : États pour la création et modification d'une branche (avec image)
+  // Modale Branche
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryData, setCategoryData] = useState({ name: '', imageUrl: '' });
@@ -48,52 +66,46 @@ export default function InstructorPortal() {
     }
   };
 
-  // --- GÉRER LES BRANCHES (CRÉATION ET MODIFICATION) ---
   const handleCategorySubmit = async (e) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
       
       if (editingCategory) {
-        // Mode Modification
         await axios.put(`http://localhost:5000/api/categories/${editingCategory.id}`, categoryData, { 
           headers: { Authorization: `Bearer ${token}` } 
         });
-        alert("Branche modifiée avec succès !");
+        alert("Filière modifiée avec succès !");
       } else {
-        // Mode Création
         await axios.post('http://localhost:5000/api/categories', categoryData, { 
           headers: { Authorization: `Bearer ${token}` } 
         });
-        alert("Branche créée avec succès !");
+        alert("Filière créée avec succès !");
       }
       
-      // On ferme la fenêtre et on rafraîchit la liste
       setIsCategoryModalOpen(false);
       setEditingCategory(null);
       setCategoryData({ name: '', imageUrl: '' });
       fetchInstructorCourses(token); 
     } catch (error) {
-      alert("Erreur (Cette branche existe peut-être déjà).");
+      alert("Erreur (Cette filière existe peut-être déjà).");
     }
   };
 
-  // --- SUPPRIMER UNE BRANCHE ---
   const handleDeleteCategory = async (categoryId) => {
-    if (!window.confirm("Voulez-vous vraiment supprimer cette branche ? Ses cours seront déplacés vers 'Autres'.")) return;
+    if (!window.confirm("Voulez-vous vraiment supprimer cette filière ? Ses cours seront déplacés vers 'Autres'.")) return;
     
     try {
       const token = localStorage.getItem('token');
       await axios.delete(`http://localhost:5000/api/categories/${categoryId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchInstructorCourses(token); // Rafraîchit l'affichage
+      fetchInstructorCourses(token); 
     } catch (error) {
-      alert("Erreur lors de la suppression de la branche.");
+      alert("Erreur lors de la suppression de la filière.");
     }
   };
 
-  // --- GÉRER LES COURS ---
   const handleCreateCourse = async (e) => {
     e.preventDefault();
     try {
@@ -103,7 +115,7 @@ export default function InstructorPortal() {
       });
       setIsCreating(false);
       setNewCourse({ title: '', description: '', accessKey: '', imageUrl: '', categoryId: '' });
-      fetchInstructorCourses(token); // On rafraîchit la liste
+      fetchInstructorCourses(token);
       alert("Formation créée avec succès !");
     } catch (error) {
       alert("Erreur lors de la création.");
@@ -116,231 +128,385 @@ export default function InstructorPortal() {
     <div className="min-h-screen flex bg-slate-50 font-sans text-slate-800">
       
       {/* SIDEBAR GAUCHE */}
-      <aside className="hidden md:flex flex-col fixed left-0 top-20 h-[calc(100vh-5rem)] w-64 bg-slate-900 text-white py-6 z-40">
-        
-        
+      <aside className="hidden md:flex flex-col fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-[#111827] text-white py-6 z-30 border-r border-slate-800 shadow-xl">
+        <div className="px-6 mb-8">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Administration</span>
+          <h2 className="text-lg font-black text-white mt-1 leading-tight">Portail<br/><span className="text-[#EB0A1E]">Formateur</span></h2>
+        </div>
+
         <nav className="flex flex-col gap-2 px-4">
-          <Link to="/dashboard" className="flex items-center gap-3 py-3 px-4 text-slate-300 hover:bg-slate-800 rounded-xl transition-colors">
-            <span>← Mode Étudiant</span>
+          <Link to="/dashboard" className="flex items-center gap-3 py-3 px-4 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors text-sm font-bold group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span>Mode Apprenant</span>
           </Link>
-          <button onClick={() => setActiveTab('COURSES')} className={`text-left py-3 px-4 rounded-xl font-bold transition-colors ${activeTab === 'COURSES' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>📚 Mes Formations</button>
-          <button onClick={() => setActiveTab('BRANCHES')} className={`text-left py-3 px-4 rounded-xl font-bold transition-colors ${activeTab === 'BRANCHES' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>📂 Mes Branches</button>
+          
+          <div className="h-px bg-slate-800 my-2 mx-4"></div>
+
+          <button 
+            onClick={() => setActiveTab('COURSES')} 
+            className={`flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'COURSES' ? 'bg-[#EB0A1E] text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>Mes Formations</span>
+          </button>
+          
+          <button 
+            onClick={() => setActiveTab('BRANCHES')} 
+            className={`flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'BRANCHES' ? 'bg-[#EB0A1E] text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'
+            }`}
+          >
+            <FolderKanban className="w-4 h-4" />
+            <span>Filières & Branches</span>
+          </button>
         </nav>
-        
       </aside>
 
       {/* CONTENU PRINCIPAL */}
-      <main className="md:ml-64 flex-1 pb-12">
-        <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center sticky top-20 z-30">
-          <h2 className="text-xl font-bold">{activeTab === 'COURSES' ? 'Vos Formations' : 'Vos Branches'}</h2>
+      <main className="md:ml-64 flex-1 pb-12 pt-16 md:pt-4">
+        
+        {/* En-tête mobile (caché sur desktop car sidebar) */}
+        <header className="md:hidden h-16 bg-white border-b border-slate-200 px-6 flex items-center sticky top-16 z-30 justify-between">
+          <h2 className="text-lg font-black text-slate-900">{activeTab === 'COURSES' ? 'Formations' : 'Filières'}</h2>
+          <div className="flex gap-2">
+            <button onClick={() => setActiveTab('COURSES')} className={`p-2 rounded-lg ${activeTab === 'COURSES' ? 'bg-red-50 text-[#EB0A1E]' : 'text-slate-400'}`}><BookOpen className="w-5 h-5"/></button>
+            <button onClick={() => setActiveTab('BRANCHES')} className={`p-2 rounded-lg ${activeTab === 'BRANCHES' ? 'bg-red-50 text-[#EB0A1E]' : 'text-slate-400'}`}><FolderKanban className="w-5 h-5"/></button>
+          </div>
         </header>
-        <div className="p-8 max-w-6xl mx-auto space-y-8">
+
+        <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
           
-          {activeTab === 'COURSES' && (
-            <>
-              <button onClick={() => setIsCreating(true)} className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">+ Créer une formation</button>
-          <div className="flex justify-between items-end">
+          {/* HEADER DE SECTION */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
             <div>
-              <p className="text-slate-500 mt-2">Gérez votre contenu et surveillez vos inscriptions.</p>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+                {activeTab === 'COURSES' ? 'Gestion des Formations' : 'Gestion des Filières'}
+              </h1>
+              <p className="text-slate-500 text-sm mt-1">
+                {activeTab === 'COURSES' ? 'Créez du contenu technique et suivez les certifications de vos équipes.' : 'Organisez vos modules par spécialités (ex: CACES, SAS, TPS).'}
+              </p>
             </div>
+            {activeTab === 'COURSES' ? (
+              <button 
+                onClick={() => setIsCreating(true)} 
+                className="px-5 py-2.5 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] transition-all flex items-center gap-2 shadow-sm active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Nouveau Module</span>
+              </button>
+            ) : (
+              <button 
+                onClick={() => { setEditingCategory(null); setCategoryData({ name: '', imageUrl: '' }); setIsCategoryModalOpen(true); }} 
+                className="px-5 py-2.5 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] transition-all flex items-center gap-2 shadow-sm active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Nouvelle Filière</span>
+              </button>
+            )}
           </div>
 
-          {/* TABLEAU DES COURS */}
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-200">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-bold">
-                <tr>
-                  <th className="px-6 py-4 rounded-tl-3xl">Nom de la formation</th>
-                  <th className="px-6 py-4">Clé Secrète</th>
-                  <th className="px-6 py-4">Leçons</th>
-                  <th className="px-6 py-4">Inscrits</th>
-                  <th className="px-6 py-4">Taux de réussite</th>
-                  <th className="px-6 py-4 text-right rounded-tr-3xl">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
-                {courses.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-8 text-center text-slate-500">
-                      Vous n'avez pas encore créé de formation.
-                    </td>
-                  </tr>
-                ) : (
-                  courses.map(course => (
-                    <tr key={course.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4 font-bold text-slate-900">
-                        {course.title}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-3 py-1 bg-slate-100 text-slate-700 font-mono text-xs rounded-lg border border-slate-200">
-                          {course.accessKey}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-slate-600">
-                        {course._count.lessons} vidéos
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 font-medium">
-                        {course._count.enrollments} étudiants
-                      </td>
-                      <td className="px-6 py-4 relative group">
-                          
-                          {/* Le texte toujours visible */}
-                          {course.successRate !== null ? (
-                            <div className="flex items-center gap-2 cursor-help">
-                              <span className={`font-black ${course.successRate >= 50 ? 'text-green-600' : 'text-red-600'}`}>
-                                {course.successRate}%
-                              </span>
-                              <span className="text-xs text-slate-400">
-                                ({course.totalEvaluated} examens)
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-slate-400 text-xs italic cursor-help">Pas d'examen</span>
-                          )}
-
-                          {/* L'INFO-BULLE (Cachée par défaut, s'affiche avec group-hover) */}
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-4 bg-slate-900 text-white text-xs rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-2xl pointer-events-none">
-                            <p className="font-bold mb-3 border-b border-slate-700 pb-2 text-center text-slate-200">
-                              Détails des étudiants ({course._count.enrollments})
-                            </p>
-                            
-                            <div className="flex justify-between items-center mb-2">
-                              <span className="text-slate-300 flex items-center gap-1"><span>🎓</span> Validés :</span>
-                              <span className="font-black text-green-400 text-sm">{course.validatedCount}</span>
-                            </div>
-                            
-                            <div className="flex justify-between items-center mb-2">
-                              <span className="text-slate-300 flex items-center gap-1"><span>❌</span> Échecs :</span>
-                              <span className="font-black text-red-400 text-sm">{course.failedCount}</span>
-                            </div>
-                            
-                            <div className="flex justify-between items-center pt-2 border-t border-slate-700">
-                              <span className="text-slate-400 flex items-center gap-1"><span>⏳</span> En cours (Non validés) :</span>
-                              <span className="font-black text-blue-400 text-sm">{course.inProgressCount}</span>
-                            </div>
-
-                            {/* Le petit triangle pointu en bas de la bulle */}
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-slate-900"></div>
-                          </div>
-
-                        </td>
-                      <td className="px-6 py-4 text-right">
-                        {/* Plus tard on fera le bouton pour ajouter des vidéos ici */}
-                        <button 
-                            onClick={() => navigate(`/instructor/courses/${course.id}`)}
-                            className="text-blue-600 font-bold hover:underline text-xs">
-                                Gérer le contenu
-                        </button>
-                      </td>
+          {/* --- ONGLET : COURS --- */}
+          {activeTab === 'COURSES' && (
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left whitespace-nowrap">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
+                    <tr>
+                      <th className="px-6 py-4 rounded-tl-3xl">Module Technique</th>
+                      <th className="px-6 py-4">Clé Secrète</th>
+                      <th className="px-6 py-4">Contenu</th>
+                      <th className="px-6 py-4">Inscrits</th>
+                      <th className="px-6 py-4">Réussite</th>
+                      <th className="px-6 py-4 text-right rounded-tr-3xl">Action</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          </>
-        )}
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                    {courses.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="px-6 py-12 text-center">
+                          <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                          <p className="text-slate-500 font-bold">Aucune formation créée pour le moment.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      courses.map(course => (
+                        <tr key={course.id} className="hover:bg-slate-50 transition-colors group/row">
+                          <td className="px-6 py-4 font-bold text-slate-900">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-red-50 text-[#EB0A1E] flex items-center justify-center shrink-0">
+                                <BookOpen className="w-4 h-4" />
+                              </div>
+                              <span className="truncate max-w-[200px]">{course.title}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-3 py-1.5 bg-slate-100 text-slate-700 font-mono text-[10px] font-black tracking-widest rounded-lg border border-slate-200 flex items-center gap-1.5 w-max">
+                              <KeyRound className="w-3 h-3 text-slate-400" />
+                              {course.accessKey}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-slate-600 font-semibold text-xs flex items-center gap-1.5 mt-2">
+                            <PlaySquare className="w-4 h-4 text-slate-400" />
+                            {course._count.lessons} vidéos
+                          </td>
+                          <td className="px-6 py-4 text-slate-600 font-semibold text-xs">
+                            <div className="flex items-center gap-1.5">
+                              <Users className="w-4 h-4 text-slate-400" />
+                              {course._count.enrollments}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 relative group">
+                            {course.successRate !== null ? (
+                              <div className="flex items-center gap-2 cursor-help">
+                                <Target className={`w-4 h-4 ${course.successRate >= 70 ? 'text-emerald-500' : 'text-[#EB0A1E]'}`} />
+                                <span className={`font-black ${course.successRate >= 70 ? 'text-emerald-600' : 'text-[#EB0A1E]'}`}>
+                                  {course.successRate}%
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-bold">
+                                  ({course.totalEvaluated})
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-xs font-semibold italic flex items-center gap-1 cursor-help">
+                                <Clock className="w-3.5 h-3.5" /> Pas d'éval.
+                              </span>
+                            )}
 
-        {activeTab === 'BRANCHES' && (
-            <>
-              <button onClick={() => { setEditingCategory(null); setCategoryData({ name: '', imageUrl: '' }); setIsCategoryModalOpen(true); }} className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">+ Créer une branche</button>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {categories.map(cat => (
-                  <div key={cat.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                    <img src={cat.imageUrl} alt={cat.name} className="w-full h-32 object-cover bg-slate-100" />
-                    <div className="p-4">
-                      <h3 className="font-bold text-lg">{cat.name}</h3>
-                      <p className="text-sm text-slate-500 mb-4">{cat._count?.courses || 0} formation(s)</p>
-                      <div className="flex gap-2">
-                        <button onClick={() => { setEditingCategory(cat); setCategoryData({ name: cat.name, imageUrl: cat.imageUrl || '' }); setIsCategoryModalOpen(true); }} className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold w-1/2">Modifier</button>
-                        <button onClick={() => handleDeleteCategory(cat.id)} className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold w-1/2">Supprimer</button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                            {/* L'INFO-BULLE (Tooltip) */}
+                            <div className="absolute bottom-full left-6 mb-2 w-60 p-4 bg-[#111827] text-white text-xs rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-xl pointer-events-none">
+                              <p className="font-black mb-3 border-b border-slate-700 pb-2 text-slate-200 uppercase tracking-wider text-[10px]">
+                                Détails des étudiants ({course._count.enrollments})
+                              </p>
+                              
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-slate-400 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500"/> Validés :</span>
+                                <span className="font-black text-emerald-400 text-sm">{course.validatedCount}</span>
+                              </div>
+                              
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-slate-400 flex items-center gap-1.5"><XCircle className="w-3.5 h-3.5 text-red-500"/> Échecs :</span>
+                                <span className="font-black text-red-400 text-sm">{course.failedCount}</span>
+                              </div>
+                              
+                              <div className="flex justify-between items-center pt-2 border-t border-slate-700">
+                                <span className="text-slate-400 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-blue-400"/> En cours :</span>
+                                <span className="font-black text-blue-400 text-sm">{course.inProgressCount}</span>
+                              </div>
+
+                              <div className="absolute top-full left-8 border-[6px] border-transparent border-t-[#111827]"></div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button 
+                              onClick={() => navigate(`/instructor/courses/${course.id}`)}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-[#EB0A1E] text-slate-700 hover:text-white rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+                            >
+                              <Settings className="w-3.5 h-3.5" />
+                              <span>Gérer</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-            </>
+            </div>
           )}
 
+          {/* --- ONGLET : BRANCHES (FILIÈRES) --- */}
+          {activeTab === 'BRANCHES' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {categories.length === 0 && (
+                <div className="col-span-3 text-center py-12 bg-white rounded-3xl border border-slate-200">
+                  <FolderKanban className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-500 font-bold">Aucune filière créée. Commencez par en ajouter une.</p>
+                </div>
+              )}
+              {categories.map(cat => (
+                <div key={cat.id} className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col group">
+                  <div className="h-32 relative bg-slate-100 overflow-hidden">
+                    <img src={cat.imageUrl || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800"} alt={cat.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
+                    <div className="absolute bottom-3 left-4">
+                      <span className="px-2 py-1 bg-white/20 backdrop-blur-md border border-white/30 text-white text-[9px] font-black uppercase tracking-widest rounded-md">
+                        Spécialité
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-5 flex-1 flex flex-col">
+                    <h3 className="font-black text-lg text-slate-900 mb-1 truncate">{cat.name}</h3>
+                    <p className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-5">
+                      <BookOpen className="w-3.5 h-3.5" />
+                      {cat._count?.courses || 0} module(s) lié(s)
+                    </p>
+                    
+                    <div className="mt-auto grid grid-cols-2 gap-2">
+                      <button 
+                        onClick={() => { setEditingCategory(cat); setCategoryData({ name: cat.name, imageUrl: cat.imageUrl || '' }); setIsCategoryModalOpen(true); }} 
+                        className="py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Edit className="w-3.5 h-3.5" /> Modifier
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteCategory(cat.id)} 
+                        className="py-2 bg-red-50 text-[#EB0A1E] hover:bg-red-100 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Supprimer
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
 
-      {/* MODALE CRÉATION DE COURS */}
+      {/* MODALE : CRÉATION DE COURS */}
       {isCreating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl animate-in zoom-in duration-200">
-            <h3 className="text-2xl font-bold mb-6">Nouvelle Formation</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md p-6 sm:p-8 rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 relative">
+            <div className="absolute top-0 left-0 w-full h-2 bg-[#EB0A1E] rounded-t-3xl"></div>
+            
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-red-50 text-[#EB0A1E] rounded-xl flex items-center justify-center">
+                <Plus className="w-5 h-5" />
+              </div>
+              <h3 className="text-xl font-black text-slate-900">Nouveau Module</h3>
+            </div>
+            
             <form onSubmit={handleCreateCourse} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Branche (Catégorie)</label>
+                <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                  <FolderKanban className="w-3.5 h-3.5" /> Filière
+                </label>
                 <select 
                   value={newCourse.categoryId} 
                   onChange={(e) => setNewCourse({...newCourse, categoryId: e.target.value})}
-                  className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#EB0A1E] focus:ring-2 focus:ring-red-100 text-sm font-semibold transition-all"
                   required
                 >
-                  <option value="">-- Choisir une branche --</option>
+                  <option value="">-- Sélectionner une spécialité --</option>
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
               </div>
+              
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Titre de la formation</label>
+                <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                  <Tag className="w-3.5 h-3.5" /> Titre de la formation
+                </label>
                 <input 
                   type="text" 
                   value={newCourse.title}
                   onChange={(e) => setNewCourse({...newCourse, title: e.target.value})}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none" required
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#EB0A1E] focus:ring-2 focus:ring-red-100 text-sm transition-all" 
+                  placeholder="Ex: CACES R489 Catégorie 3"
+                  required
                 />
               </div>
+              
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Description</label>
+                <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                  <AlignLeft className="w-3.5 h-3.5" /> Description
+                </label>
                 <textarea 
                   value={newCourse.description}
                   onChange={(e) => setNewCourse({...newCourse, description: e.target.value})}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none h-24" required
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#EB0A1E] focus:ring-2 focus:ring-red-100 text-sm h-24 resize-none transition-all" 
+                  placeholder="Objectifs pédagogiques..."
+                  required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Clé Secrète (Access Key)</label>
-                <input 
-                  type="text" 
-                  value={newCourse.accessKey}
-                  onChange={(e) => setNewCourse({...newCourse, accessKey: e.target.value.toUpperCase()})}
-                  placeholder="Ex: PRO2026"
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none font-mono uppercase" required
-                />
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                    <KeyRound className="w-3.5 h-3.5" /> Clé d'accès
+                  </label>
+                  <input 
+                    type="text" 
+                    value={newCourse.accessKey}
+                    onChange={(e) => setNewCourse({...newCourse, accessKey: e.target.value.toUpperCase()})}
+                    placeholder="TYT-26"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#EB0A1E] focus:ring-2 focus:ring-red-100 font-mono font-bold uppercase text-center transition-all text-sm" 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                    <ImageIcon className="w-3.5 h-3.5" /> URL Image
+                  </label>
+                  <input 
+                    type="url" 
+                    value={newCourse.imageUrl}
+                    onChange={(e) => setNewCourse({...newCourse, imageUrl: e.target.value})}
+                    placeholder="https://..."
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#EB0A1E] focus:ring-2 focus:ring-red-100 text-sm transition-all" 
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Lien de l'image (URL)</label>
-                <input 
-                  type="url" 
-                  value={newCourse.imageUrl}
-                  onChange={(e) => setNewCourse({...newCourse, imageUrl: e.target.value})}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none" 
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setIsCreating(false)} className="w-1/2 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200">Annuler</button>
-                <button type="submit" className="w-1/2 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">Créer</button>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-100 mt-6">
+                <button type="button" onClick={() => setIsCreating(false)} className="w-1/3 py-3.5 bg-slate-100 text-slate-600 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 transition-colors">Annuler</button>
+                <button type="submit" className="w-2/3 py-3.5 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] transition-colors shadow-md flex items-center justify-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" /> Créer le cours
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
-      {/* MODALE GESTION BRANCHE */}
+
+      {/* MODALE : GESTION BRANCHE */}
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl">
-            <h3 className="text-2xl font-bold mb-6">{editingCategory ? 'Modifier la Branche' : 'Nouvelle Branche'}</h3>
-            <form onSubmit={handleCategorySubmit} className="space-y-4">
-              <div><label className="block text-sm font-bold text-slate-700 mb-1">Nom de la branche</label><input type="text" value={categoryData.name} onChange={e => setCategoryData({...categoryData, name: e.target.value})} className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-600" required /></div>
-              <div><label className="block text-sm font-bold text-slate-700 mb-1">Image (URL)</label><input type="url" value={categoryData.imageUrl} onChange={e => setCategoryData({...categoryData, imageUrl: e.target.value})} className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-600" required /></div>
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setIsCategoryModalOpen(false)} className="w-1/2 py-3 bg-slate-100 font-bold rounded-xl hover:bg-slate-200">Annuler</button>
-                <button type="submit" className="w-1/2 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">Sauvegarder</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md p-6 sm:p-8 rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 relative">
+            <div className="absolute top-0 left-0 w-full h-2 bg-[#111827] rounded-t-3xl"></div>
+            
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-slate-100 text-slate-800 rounded-xl flex items-center justify-center">
+                {editingCategory ? <Edit className="w-5 h-5" /> : <FolderKanban className="w-5 h-5" />}
+              </div>
+              <h3 className="text-xl font-black text-slate-900">{editingCategory ? 'Modifier la Filière' : 'Nouvelle Filière'}</h3>
+            </div>
+
+            <form onSubmit={handleCategorySubmit} className="space-y-5">
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                  <Tag className="w-3.5 h-3.5" /> Nom de la filière
+                </label>
+                <input 
+                  type="text" 
+                  value={categoryData.name} 
+                  onChange={e => setCategoryData({...categoryData, name: e.target.value})} 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm font-semibold transition-all" 
+                  placeholder="Ex: Système Actif de Stabilité (SAS)"
+                  required 
+                />
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                  <ImageIcon className="w-3.5 h-3.5" /> Image (URL)
+                </label>
+                <input 
+                  type="url" 
+                  value={categoryData.imageUrl} 
+                  onChange={e => setCategoryData({...categoryData, imageUrl: e.target.value})} 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm transition-all" 
+                  placeholder="https://images.unsplash.com/..."
+                  required 
+                />
+              </div>
+              <div className="flex gap-3 pt-4 border-t border-slate-100 mt-2">
+                <button type="button" onClick={() => setIsCategoryModalOpen(false)} className="w-1/3 py-3.5 bg-slate-100 text-slate-600 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 transition-colors">Annuler</button>
+                <button type="submit" className="w-2/3 py-3.5 bg-[#EB0A1E] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#BD0014] transition-colors shadow-md flex items-center justify-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" /> Sauvegarder
+                </button>
               </div>
             </form>
           </div>

@@ -1,20 +1,31 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { 
+  ArrowLeft, 
+  BookOpen, 
+  Layers, 
+  Lock, 
+  KeyRound, 
+  ShieldCheck, 
+  ChevronRight, 
+  AlertCircle, 
+  Play,
+  Settings
+} from 'lucide-react';
 
 export default function Catalog() {
   const navigate = useNavigate();
-  const { token } = useAuthStore(); // On récupère le token depuis Zustand
+  const { token } = useAuthStore(); 
   
   const [courses, setCourses] = useState([]);
-  const [categories, setCategories] = useState([]); // Les branches
+  const [categories, setCategories] = useState([]); 
   const [isLoading, setIsLoading] = useState(true);
   
-  // État de navigation interne : null = vue Branches, ID = vue des cours de cette branche, "OTHER" = vue "Autres"
-  const [selectedCategoryId, setSelectedCategoryId] = useState(null)
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
 
-  // États pour la modale de clé secrète
+  // Modale
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [accessKey, setAccessKey] = useState('');
   const [unlockError, setUnlockError] = useState('');
@@ -23,7 +34,6 @@ export default function Catalog() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // On récupère les cours ET les branches en même temps !
         const [coursesRes, categoriesRes] = await Promise.all([
           axios.get('http://localhost:5000/api/courses'),
           axios.get('http://localhost:5000/api/categories')
@@ -62,196 +72,242 @@ export default function Catalog() {
       navigate('/dashboard'); 
 
     } catch (error) {
-      setUnlockError(error.response?.data?.message || "Erreur lors du déblocage.");
+      setUnlockError(error.response?.data?.message || "Erreur lors du déblocage ou clé invalide.");
     } finally {
       setIsUnlocking(false);
     }
   };
 
-   // Calcul du nombre de cours sans branche ("Autres")
   const otherCourses = courses.filter(c => !c.categoryId);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto font-sans text-slate-800">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20">
       
-      {/* En-tête */}
-      <div className="mb-10 text-center md:text-left flex flex-col md:flex-row justify-between md:items-end gap-6">
-        <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Catalogue</h1>
-          <p className="text-slate-500 mt-2 text-lg">
-            {selectedCategoryId === null ? "Choisissez votre domaine d'apprentissage." : "Découvrez les formations de cette branche."}
-          </p>
+      {/* HEADER CATALOGUE */}
+      <div 
+        className="text-white pt-16 pb-24 px-4 md:px-8 relative overflow-hidden bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: `linear-gradient(to right, rgba(17, 24, 39, 0.9), rgba(17, 24, 39, 0.7)), url('https://toyotamaterialhandling-international.com/storage/78ED4D4EA67DC2C61D353E40B8F87EDEEBAC5DEB3783309EA5186F1F261C0A50/b7b505aa7dfa456e981d679b8cb103de/jpg/media/297c9821642443628abc82b2a51287a1/%20Banner_OptioL.jpg')`
+        }}
+      >
+        {/* Décoration de fond */}
+        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-red-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
+        
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-800/50 border border-slate-700 rounded-full text-[10px] font-black uppercase tracking-widest text-slate-300 mb-4">
+            <Layers className="w-3.5 h-3.5 text-[#EB0A1E]" />
+            Centre de Formation Technique
+          </div>
+          
+          <div className="flex flex-col md:flex-row justify-between md:items-end gap-6">
+            <div>
+              <h1 className="text-3xl md:text-5xl font-black tracking-tight mb-3">
+                {selectedCategoryId === null ? "Catalogue des Filières" : "Formations Disponibles"}
+              </h1>
+              <p className="text-slate-400 text-sm md:text-base max-w-xl">
+                {selectedCategoryId === null 
+                  ? "Sélectionnez une spécialité industrielle pour découvrir les modules d'habilitation et de certification associés." 
+                  : "Parcourez les modules de cette branche et utilisez votre clé pour les débloquer."}
+              </p>
+            </div>
+            
+            {selectedCategoryId !== null && (
+              <button 
+                onClick={() => setSelectedCategoryId(null)} 
+                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl flex items-center gap-2 transition-colors border border-slate-700 text-xs uppercase tracking-wider shadow-sm"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Retour aux filières</span>
+              </button>
+            )}
+          </div>
         </div>
-        {selectedCategoryId !== null && (
-          <button onClick={() => setSelectedCategoryId(null)} className="px-6 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 flex items-center gap-2">
-            <span>←</span> Retour aux branches
-          </button>
+      </div>
+
+      {/* CONTENU PRINCIPAL */}
+      <div className="max-w-7xl mx-auto px-4 md:px-8 -mt-10 relative z-20">
+        
+        {isLoading ? (
+          <div className="bg-white p-10 rounded-3xl shadow-sm text-center border border-slate-200">
+            <div className="w-8 h-8 border-4 border-[#EB0A1E] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-500 font-bold text-sm">Chargement du catalogue industriel...</p>
+          </div>
+        ) : selectedCategoryId === null ? (
+          
+          // --- VUE 1 : LES BRANCHES (FILIÈRES) ---
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {categories.map(cat => {
+              const branchCourses = courses.filter(c => c.categoryId === cat.id);
+              const courseCount = branchCourses.length;
+
+              return (
+                <div 
+                  key={cat.id} 
+                  onClick={() => setSelectedCategoryId(cat.id)}
+                  className="group bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:border-red-200 transition-all duration-300 cursor-pointer flex flex-col"
+                >
+                  <div className="h-48 relative overflow-hidden bg-slate-100 shrink-0">
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent z-10"></div>
+                    <img 
+                      src={cat.imageUrl || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800"} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      alt={cat.name} 
+                    />
+                    
+                    <div className="absolute top-3 left-3 z-20">
+                      <span className="px-2.5 py-1 bg-white/20 backdrop-blur-md text-white text-[9px] uppercase tracking-widest font-black rounded-full border border-white/30">
+                        Spécialité
+                      </span>
+                    </div>
+
+                    <div className="absolute bottom-4 left-5 right-5 z-20">
+                      <h3 className="text-xl font-black text-white group-hover:text-red-300 transition-colors">
+                        {cat.name}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="p-5 flex flex-col flex-1 bg-white relative">
+                    <div className="absolute -top-6 right-5 w-12 h-12 bg-[#EB0A1E] text-white rounded-2xl flex items-center justify-center shadow-lg group-hover:-translate-y-1 group-hover:bg-[#BD0014] transition-all duration-300 z-30">
+                      <ChevronRight className="w-6 h-6" />
+                    </div>
+
+                    <div className="flex flex-col gap-3 mt-2">
+                      <div className="flex items-center gap-3 text-slate-600 text-xs font-semibold">
+                        <div className="w-8 h-8 rounded-xl bg-red-50 text-[#EB0A1E] flex items-center justify-center shrink-0">
+                          <BookOpen className="w-4 h-4" />
+                        </div>
+                        <span><strong>{courseCount}</strong> modules certifiants</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 text-slate-600 text-xs font-semibold">
+                        <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                          <ShieldCheck className="w-4 h-4" />
+                        </div>
+                        <span>Aligné Standard TPS</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            
+            {/* --- CARTE SPÉCIALE "AUTRES FORMATIONS" --- */}
+            {otherCourses.length > 0 && (
+               <div 
+                 onClick={() => setSelectedCategoryId('OTHER')} 
+                 className="group bg-slate-900 rounded-3xl border border-slate-700 overflow-hidden shadow-sm hover:shadow-xl hover:border-slate-500 transition-all duration-300 cursor-pointer flex flex-col"
+               >
+                 <div className="h-48 relative overflow-hidden bg-slate-800 shrink-0">
+                   <div className="absolute inset-0 opacity-40 bg-[url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=800')] bg-cover bg-center mix-blend-overlay group-hover:opacity-60 transition-opacity duration-500"></div>
+                   
+                   <div className="absolute top-3 left-3 z-20">
+                      <span className="px-2.5 py-1 bg-white/10 backdrop-blur-md text-white text-[9px] uppercase tracking-widest font-black rounded-full border border-white/20">
+                        Transversal
+                      </span>
+                    </div>
+
+                   <div className="absolute bottom-4 left-5 right-5 z-20">
+                     <h3 className="text-xl font-black text-white group-hover:text-blue-300 transition-colors">
+                       Modules Généraux
+                     </h3>
+                   </div>
+                 </div>
+
+                 <div className="p-5 flex flex-col flex-1 bg-slate-900 relative">
+                   <div className="absolute -top-6 right-5 w-12 h-12 bg-white text-slate-900 rounded-2xl flex items-center justify-center shadow-lg group-hover:-translate-y-1 transition-all duration-300 z-30">
+                     <ChevronRight className="w-6 h-6" />
+                   </div>
+
+                   <div className="flex flex-col gap-3 mt-2">
+                      <div className="flex items-center gap-3 text-slate-300 text-xs font-semibold">
+                        <div className="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center shrink-0">
+                          <Layers className="w-4 h-4" />
+                        </div>
+                        <span><strong>{otherCourses.length}</strong> modules libres</span>
+                      </div>
+                   </div>
+                 </div>
+               </div>
+            )}
+          </div>
+
+        ) : (
+          
+          // --- VUE 2 : LES COURS D'UNE BRANCHE ---
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            {(() => {
+              const coursesToShow = selectedCategoryId === 'OTHER' 
+                ? courses.filter(c => !c.categoryId) 
+                : courses.filter(c => c.categoryId === selectedCategoryId);
+
+              if (coursesToShow.length === 0) return (
+                <div className="col-span-3 bg-white rounded-3xl p-12 text-center border border-slate-200">
+                  <Settings className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500 font-bold">Aucun module disponible dans cette filière pour le moment.</p>
+                </div>
+              );
+
+              return coursesToShow.map(course => (
+                <div key={course.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-md hover:border-red-200 transition-all flex flex-col overflow-hidden group">
+                  <div className="h-44 relative overflow-hidden bg-slate-100">
+                    <img 
+                      src={course.imageUrl || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800"} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      alt="course" 
+                    />
+                    <div className="absolute top-3 right-3">
+                      <span className="px-2.5 py-1 bg-slate-900/90 backdrop-blur-sm text-white text-[10px] font-black rounded-full flex items-center gap-1 shadow-sm">
+                        <Lock className="w-3 h-3 text-[#EB0A1E]" />
+                        Clé requise
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-5 flex flex-col flex-1">
+                    <h3 className="text-lg font-black mb-1.5 text-slate-900 group-hover:text-[#EB0A1E] transition-colors line-clamp-2 leading-snug">
+                      {course.title}
+                    </h3>
+                    <p className="text-slate-500 text-xs mb-5 line-clamp-2 flex-1 leading-relaxed">
+                      {course.description || "Formation technique standard pour l'amélioration continue."}
+                    </p>
+                    
+                    <button 
+                      onClick={() => setSelectedCourse(course)} 
+                      className="w-full py-2.5 bg-red-50 text-[#EB0A1E] hover:bg-[#EB0A1E] hover:text-white text-xs font-black uppercase tracking-wider rounded-xl transition-colors flex items-center justify-center gap-2"
+                    >
+                      <KeyRound className="w-4 h-4" />
+                      Débloquer l'accès
+                    </button>
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
         )}
       </div>
 
-      {/* GRILLE DES FORMATIONS FILTRÉES */}
-      {isLoading ? (
-        <p className="text-center font-bold mt-20">Chargement...</p>
-      ) : selectedCategoryId === null ? (
-        
-        // --- VUE 1 : LES BRANCHES (DESIGN PREMIUM) ---
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {categories.map(cat => {
-            // On calcule le nombre de cours dans cette branche
-            const branchCourses = courses.filter(c => c.categoryId === cat.id);
-            const courseCount = branchCourses.length;
-
-            return (
-              <div 
-                key={cat.id} 
-                onClick={() => setSelectedCategoryId(cat.id)}
-                className="group relative bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-blue-600/10 transition-all duration-500 cursor-pointer flex flex-col hover:-translate-y-1"
-              >
-                {/* Image avec dégradé sombre en bas */}
-                <div className="h-52 relative overflow-hidden bg-slate-100 shrink-0">
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent z-10 transition-opacity duration-300 group-hover:opacity-90"></div>
-                  <img 
-                    src={cat.imageUrl || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800"} 
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                    alt={cat.name} 
-                  />
-                  
-                  {/* Petit badge en haut */}
-                  <div className="absolute top-4 left-4 z-20">
-                    <span className="px-3 py-1.5 bg-white/20 backdrop-blur-md text-white text-[10px] uppercase tracking-widest font-black rounded-full border border-white/30 shadow-sm">
-                      Spécialité
-                    </span>
-                  </div>
-
-                  {/* Titre superposé sur l'image */}
-                  <div className="absolute bottom-5 left-6 right-6 z-20">
-                    <h3 className="text-2xl font-black text-white drop-shadow-md group-hover:text-blue-300 transition-colors">
-                      {cat.name}
-                    </h3>
-                  </div>
-                </div>
-
-                {/* Contenu et Infos Supplémentaires */}
-                <div className="p-6 flex flex-col flex-1 bg-white relative">
-                  
-                  {/* Bouton d'action flottant (Cercle avec flèche) */}
-                  <div className="absolute -top-6 right-6 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:bg-blue-700 transition-all duration-300 z-30">
-                    <span className="font-bold text-xl group-hover:translate-x-1 transition-transform">→</span>
-                  </div>
-
-                  {/* Statistiques et infos de la branche */}
-                  <div className="flex flex-col gap-3 mt-2">
-                    <div className="flex items-center gap-3 text-slate-600 text-sm font-medium">
-                      <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 text-lg">
-                        📚
-                      </div>
-                      <span><strong>{courseCount}</strong> formation(s) incluse(s)</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 text-slate-600 text-sm font-medium">
-                      <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 text-lg">
-                        🤝
-                      </div>
-                      <span>De Débutant à Expert</span>
-                    </div>
-
-                    <div className="flex items-center gap-3 text-slate-600 text-sm font-medium">
-                      <div className="w-8 h-8 rounded-xl bg-green-50 text-green-600 flex items-center justify-center shrink-0 text-lg">
-                        ⚡
-                      </div>
-                      <span>Apprentissage à votre rythme</span>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-            );
-          })}
-          
-          {/* --- CARTE SPÉCIALE "AUTRES FORMATIONS" (Si formations sans branche) --- */}
-          {otherCourses.length > 0 && (
-             <div 
-               onClick={() => setSelectedCategoryId('OTHER')} 
-               className="group relative bg-slate-900 rounded-[2rem] border border-slate-700 overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-slate-900/50 transition-all duration-500 cursor-pointer flex flex-col hover:-translate-y-1"
-             >
-               {/* Fond sombre texturé */}
-               <div className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity duration-500 bg-[url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=800')] bg-cover bg-center mix-blend-overlay"></div>
-               
-               <div className="h-52 relative overflow-hidden p-6 flex flex-col justify-end z-10">
-                 <div className="absolute top-4 left-4">
-                    <span className="px-3 py-1.5 bg-white/10 backdrop-blur-md text-white text-[10px] uppercase tracking-widest font-black rounded-full border border-white/20">
-                      Général
-                    </span>
-                  </div>
-                 <h3 className="text-2xl font-black text-white group-hover:text-blue-400 transition-colors">
-                   Autres Formations
-                 </h3>
-               </div>
-
-               <div className="p-6 flex flex-col flex-1 relative z-10 border-t border-slate-800 bg-slate-900/50 backdrop-blur-sm">
-                 <div className="absolute -top-6 right-6 w-12 h-12 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                    <span className="font-bold text-xl group-hover:translate-x-1 transition-transform">→</span>
-                 </div>
-
-                 <div className="flex flex-col gap-3 mt-2">
-                    <div className="flex items-center gap-3 text-slate-300 text-sm font-medium">
-                      <div className="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center shrink-0 text-lg">📚</div>
-                      <span><strong>{otherCourses.length}</strong> formation(s) libre(s)</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-slate-300 text-sm font-medium">
-                      <div className="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center shrink-0 text-lg">💡</div>
-                      <span>Sujets divers et variés</span>
-                    </div>
-                 </div>
-               </div>
-             </div>
-          )}
-        </div>
-
-      ) : (
-        
-        // --- VUE 2 : LES COURS D'UNE BRANCHE ---
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4">
-          {(() => {
-            const coursesToShow = selectedCategoryId === 'OTHER' 
-              ? courses.filter(c => !c.categoryId) 
-              : courses.filter(c => c.categoryId === selectedCategoryId);
-
-            if (coursesToShow.length === 0) return <p className="col-span-3 text-center py-20 text-slate-500 italic">Aucune formation dans cette branche.</p>;
-
-            return coursesToShow.map(course => (
-              <div key={course.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl transition-all flex flex-col overflow-hidden group">
-                <div className="h-48 relative overflow-hidden bg-slate-100">
-                  <img src={course.imageUrl || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="course" />
-                </div>
-                <div className="p-6 flex flex-col flex-1">
-                  <h3 className="text-xl font-black mb-2 line-clamp-1 text-slate-900">{course.title}</h3>
-                  <p className="text-slate-500 text-sm mb-6 line-clamp-2 flex-1">{course.description}</p>
-                  <button onClick={() => setSelectedCourse(course)} className="w-full py-3 bg-blue-600 text-white text-sm font-black rounded-xl hover:bg-blue-700 transition-all">
-                    Débloquer 🔓
-                  </button>
-                </div>
-              </div>
-            ));
-          })()}
-        </div>
-      )}
-
       {/* --- LA MODALE (FENÊTRE) DE LA CLÉ SECRÈTE --- */}
       {selectedCourse && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl animate-in zoom-in duration-200">
-            <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-2xl mb-6 shadow-inner">
-              🔑
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md p-6 sm:p-8 rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 relative">
+            
+            {/* Design header modale */}
+            <div className="absolute top-0 left-0 w-full h-2 bg-[#EB0A1E] rounded-t-3xl"></div>
+
+            <div className="w-14 h-14 bg-red-50 text-[#EB0A1E] rounded-2xl flex items-center justify-center mb-5 shadow-sm">
+              <KeyRound className="w-6 h-6" />
             </div>
-            <h3 className="text-2xl font-black mb-2 text-slate-900">Clé d'accès requise</h3>
-            <p className="text-slate-500 text-sm mb-6 leading-relaxed">
-              Entrez le code secret fourni par votre instructeur pour débloquer <strong className="text-slate-800">{selectedCourse.title}</strong>.
+            
+            <h3 className="text-2xl font-black mb-2 text-slate-900 tracking-tight">Activation Requise</h3>
+            <p className="text-slate-500 text-xs mb-6 leading-relaxed">
+              Veuillez saisir la clé d'activation fournie par votre superviseur pour déverrouiller le module : <br/>
+              <strong className="text-slate-800 text-sm">{selectedCourse.title}</strong>
             </p>
 
             {unlockError && (
-              <div className="mb-6 p-4 bg-red-50 text-red-700 text-sm rounded-xl font-bold border border-red-100 flex items-center gap-2">
-                <span>⚠️</span> {unlockError}
+              <div className="mb-5 p-3 bg-red-50 text-[#EB0A1E] text-xs rounded-xl font-bold border border-red-100 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{unlockError}</span>
               </div>
             )}
 
@@ -260,24 +316,29 @@ export default function Catalog() {
                 type="text" 
                 value={accessKey}
                 onChange={(e) => setAccessKey(e.target.value.toUpperCase())}
-                placeholder="Ex: REACT2026"
-                className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-blue-600 outline-none mb-6 font-mono text-lg uppercase font-bold text-center tracking-widest transition-colors"
+                placeholder="EX: TYT-2026-X"
+                className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-[#EB0A1E] focus:ring-4 focus:ring-red-100 outline-none mb-6 font-mono text-lg uppercase font-black text-center tracking-widest transition-all"
                 required
               />
               <div className="flex gap-3">
                 <button 
                   type="button"
                   onClick={() => { setSelectedCourse(null); setUnlockError(''); setAccessKey(''); }}
-                  className="w-1/3 py-3 bg-slate-100 text-slate-600 font-black rounded-xl hover:bg-slate-200 transition-colors"
+                  className="w-1/3 py-3 bg-slate-100 text-slate-600 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 transition-colors"
                 >
                   Annuler
                 </button>
                 <button 
                   type="submit"
                   disabled={isUnlocking}
-                  className="w-2/3 py-3 bg-slate-900 text-white font-black rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-70 flex justify-center items-center shadow-lg"
+                  className="w-2/3 py-3 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] transition-colors disabled:opacity-70 flex justify-center items-center gap-2 shadow-md"
                 >
-                  {isUnlocking ? "Vérification..." : "Débloquer le cours"}
+                  {isUnlocking ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <KeyRound className="w-4 h-4" />
+                  )}
+                  <span>{isUnlocking ? "Vérification..." : "Débloquer"}</span>
                 </button>
               </div>
             </form>

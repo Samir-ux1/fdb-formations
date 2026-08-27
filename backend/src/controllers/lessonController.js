@@ -2,14 +2,18 @@ const prisma = require('../config/prisma');
 
 exports.addLesson = async (req, res) => {
   try {
-    const { title, content, videoUrl, order } = req.body;
+    const { title, content, videoUrl, pdfUrl, order } = req.body; // Retour au JSON simple
     const courseId = parseInt(req.params.courseId);
 
-    const course = await prisma.course.findUnique({ where: { id: courseId } });
-    if (!course || course.instructorId !== req.user.userId) return res.status(403).json({ message: "Accès refusé." });
-
     const newLesson = await prisma.lesson.create({
-      data: { title, content, videoUrl, order: parseInt(order), courseId }
+      data: {
+        title,
+        content: content || null,
+        videoUrl: videoUrl || null,
+        pdfUrl: pdfUrl || null, 
+        order: parseInt(order) || 1,
+        courseId
+      }
     });
     res.status(201).json({ message: "Leçon ajoutée !", lesson: newLesson });
   } catch (error) {
@@ -21,14 +25,11 @@ exports.updateLesson = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
     const lessonId = parseInt(req.params.lessonId);
-    const { title, content, videoUrl, order } = req.body;
-
-    const course = await prisma.course.findUnique({ where: { id: courseId } });
-    if (!course || course.instructorId !== req.user.userId) return res.status(403).json({ message: "Accès refusé." });
+    const { title, content, videoUrl, pdfUrl, order } = req.body;
 
     const updatedLesson = await prisma.lesson.update({
       where: { id: lessonId },
-      data: { title, content, videoUrl, order: parseInt(order) }
+      data: { title, content, videoUrl: videoUrl || null, pdfUrl: pdfUrl || null, order: parseInt(order) }
     });
     res.status(200).json({ message: "Leçon modifiée !", lesson: updatedLesson });
   } catch (error) {

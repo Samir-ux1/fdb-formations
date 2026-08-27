@@ -6,6 +6,25 @@ require('dotenv').config();
 // Initialisation de l'application
 const app = express();
 
+const fs = require('fs');
+const path = require('path');
+
+// Crée le dossier "uploads" s'il n'existe pas
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
+// Rend le dossier "uploads" accessible et FORCE l'affichage des PDF dans le navigateur
+app.use('/uploads', express.static(uploadDir, {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.pdf')) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline'); // 'inline' = afficher dans la page !
+    }
+  }
+}));
+
 // Middlewares
 app.use(cors()); // Autorise ton Frontend React à communiquer avec ce Backend
 app.use(express.json()); // Permet de lire les données JSON (formulaires)

@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Layout from './components/Navbar'; // <-- On importe notre Layout
+import Layout from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/login';
 import Dashboard from './pages/Dashboard';
@@ -27,6 +27,7 @@ function App() {
           <Route path="/instructor/courses/:courseId" element={<CourseManager />} />
         </Route>
       </Routes>
+     
     </BrowserRouter>
   );
 }
