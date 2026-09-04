@@ -3,7 +3,7 @@ const prisma = require('../config/prisma');
 // --- CRÉER UNE FORMATION ---
 exports.createCourse = async (req, res) => {
   try {
-    const { title, description, accessKey, imageUrl, passingScore, categoryId } = req.body; // <-- On récupère imageUrl et categoryId
+    const { title, description, accessKey, imageUrl, passingScore, categoryId, level } = req.body; // <-- On récupère imageUrl et categoryId
     const instructorId = req.user.userId; 
 
     const newCourse = await prisma.course.create({
@@ -14,6 +14,7 @@ exports.createCourse = async (req, res) => {
         accessKey: accessKey || "SECRET123",
         imageUrl: imageUrl || undefined, // <-- On l'envoie à Prisma
         categoryId: categoryId ? parseInt(categoryId) : null,
+        level: level || 'Débutant',
         instructorId
       }
     });
@@ -220,7 +221,7 @@ exports.updateCourse = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
     // On récupère TOUTES les données, y compris categoryId et passingScore
-    const { title, description, accessKey, imageUrl, passingScore, categoryId } = req.body;
+    const { title, description, accessKey, imageUrl, passingScore, categoryId, level } = req.body;
 
     // 1. Vérifier que c'est bien l'auteur du cours
     const course = await prisma.course.findUnique({ where: { id: courseId } });
@@ -237,7 +238,8 @@ exports.updateCourse = async (req, res) => {
         accessKey, 
         imageUrl,
         passingScore: passingScore ? parseInt(passingScore) : 70, // Mise à jour du score
-        categoryId: categoryId ? parseInt(categoryId) : null      // Mise à jour de la branche
+        categoryId: categoryId ? parseInt(categoryId) : null,      // Mise à jour de la branche
+        level: level || 'Débutant' // Mise à jour du niveau
       }
     });
 

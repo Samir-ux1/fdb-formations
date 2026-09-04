@@ -8,11 +8,13 @@ import {
   Layers, 
   Lock, 
   KeyRound, 
-  ShieldCheck, 
   ChevronRight, 
   AlertCircle, 
   Play,
-  Settings
+  Search,
+  CheckCircle2,
+  Clock,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function Catalog() {
@@ -21,11 +23,17 @@ export default function Catalog() {
   
   const [courses, setCourses] = useState([]);
   const [categories, setCategories] = useState([]); 
+  const [myUnlockedCourseIds, setMyUnlockedCourseIds] = useState([]); 
   const [isLoading, setIsLoading] = useState(true);
   
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
 
-  // Modale
+  // FILTRES
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLevel, setSelectedLevel] = useState('all');
+  const [showUnlockedOnly, setShowUnlockedOnly] = useState(false);
+
+  // Modale Clé Secrète
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [accessKey, setAccessKey] = useState('');
   const [unlockError, setUnlockError] = useState('');
@@ -34,13 +42,31 @@ export default function Catalog() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [coursesRes, categoriesRes] = await Promise.all([
+        const activeToken = token || localStorage.getItem('token');
+        
+        const requests = [
           axios.get('http://localhost:5000/api/courses'),
           axios.get('http://localhost:5000/api/categories')
-        ]);
+        ];
+
+        if (activeToken) {
+          requests.push(
+            axios.get('http://localhost:5000/api/courses/my-courses', {
+              headers: { Authorization: `Bearer ${activeToken}` }
+            })
+          );
+        }
+
+        const responses = await Promise.all(requests);
         
-        setCourses(coursesRes.data);
-        setCategories(categoriesRes.data);
+        setCourses(responses[0].data);
+        setCategories(responses[1].data);
+
+        if (responses[2]) {
+          const myIds = responses[2].data.map(c => c.id);
+          setMyUnlockedCourseIds(myIds);
+        }
+
       } catch (error) {
         console.error("Erreur de chargement", error);
       } finally {
@@ -48,7 +74,7 @@ export default function Catalog() {
       }
     };
     fetchData();
-  }, []);
+  }, [token]);
 
   const handleUnlock = async (e) => {
     e.preventDefault();
@@ -66,7 +92,6 @@ export default function Catalog() {
         headers: { Authorization: `Bearer ${activeToken}` } 
       });
 
-      alert(`Succès ! Vous avez débloqué : ${selectedCourse.title}`);
       setSelectedCourse(null);
       setAccessKey('');
       navigate('/dashboard'); 
@@ -80,6 +105,37 @@ export default function Catalog() {
 
   const otherCourses = courses.filter(c => !c.categoryId);
 
+  // ==========================================
+  // LOGIQUE DE FILTRAGE
+  // ==========================================
+  let filteredCourses = courses;
+
+  // 1. Filtre par Catégorie (si on a cliqué sur une branche)
+  if (selectedCategoryId === 'OTHER') {
+    filteredCourses = filteredCourses.filter(c => !c.categoryId);
+  } else if (selectedCategoryId !== null) {
+    filteredCourses = filteredCourses.filter(c => c.categoryId === selectedCategoryId);
+  }
+
+  // 2. Filtre par recherche texte
+  if (searchQuery.trim() !== '') {
+    const lowerQuery = searchQuery.toLowerCase();
+    filteredCourses = filteredCourses.filter(c => 
+      c.title.toLowerCase().includes(lowerQuery) || 
+      (c.description && c.description.toLowerCase().includes(lowerQuery))
+    );
+  }
+
+  // 3. Filtre par Niveau
+  if (selectedLevel !== 'all') {
+    filteredCourses = filteredCourses.filter(c => (c.level || "Débutant") === selectedLevel);
+  }
+
+  // 4. Filtre par statut débloqué
+  if (showUnlockedOnly) {
+    filteredCourses = filteredCourses.filter(c => myUnlockedCourseIds.includes(c.id));
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20">
       
@@ -90,7 +146,6 @@ export default function Catalog() {
           backgroundImage: `linear-gradient(to right, rgba(17, 24, 39, 0.9), rgba(17, 24, 39, 0.7)), url('https://toyotamaterialhandling-international.com/storage/78ED4D4EA67DC2C61D353E40B8F87EDEEBAC5DEB3783309EA5186F1F261C0A50/b7b505aa7dfa456e981d679b8cb103de/jpg/media/297c9821642443628abc82b2a51287a1/%20Banner_OptioL.jpg')`
         }}
       >
-        {/* Décoration de fond */}
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-red-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
         
         <div className="max-w-7xl mx-auto relative z-10">
@@ -102,18 +157,24 @@ export default function Catalog() {
           <div className="flex flex-col md:flex-row justify-between md:items-end gap-6">
             <div>
               <h1 className="text-3xl md:text-5xl font-black tracking-tight mb-3">
-                {selectedCategoryId === null ? "Catalogue des Filières" : "Formations Disponibles"}
+                {selectedCategoryId === null ? "Catalogue Général" : "Formations Disponibles"}
               </h1>
               <p className="text-slate-400 text-sm md:text-base max-w-xl">
                 {selectedCategoryId === null 
-                  ? "Sélectionnez une spécialité industrielle pour découvrir les modules d'habilitation et de certification associés." 
-                  : "Parcourez les modules de cette branche et utilisez votre clé pour les débloquer."}
+                  ? "Sélectionnez une spécialité industrielle ou explorez toutes nos formations." 
+                  : "Parcourez les résultats de cette spécialité et utilisez les filtres pour affiner."}
               </p>
             </div>
             
+            {/* Bouton Retour : Visible uniquement si on est dans une catégorie spécifique */}
             {selectedCategoryId !== null && (
               <button 
-                onClick={() => setSelectedCategoryId(null)} 
+                onClick={() => {
+                  setSelectedCategoryId(null);
+                  setSearchQuery('');
+                  setSelectedLevel('all');
+                  setShowUnlockedOnly(false);
+                }} 
                 className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl flex items-center gap-2 transition-colors border border-slate-700 text-xs uppercase tracking-wider shadow-sm"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -125,23 +186,26 @@ export default function Catalog() {
       </div>
 
       {/* CONTENU PRINCIPAL */}
-      <div className="max-w-7xl mx-auto px-4 md:px-8 -mt-10 relative z-20">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 -mt-10 relative z-20 space-y-10">
         
         {isLoading ? (
           <div className="bg-white p-10 rounded-3xl shadow-sm text-center border border-slate-200">
             <div className="w-8 h-8 border-4 border-[#EB0A1E] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-slate-500 font-bold text-sm">Chargement du catalogue industriel...</p>
           </div>
-        ) : selectedCategoryId === null ? (
-          
-          // --- VUE 1 : LES BRANCHES (FILIÈRES) ---
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {categories.map(cat => {
-              const branchCourses = courses.filter(c => c.categoryId === cat.id);
-              const courseCount = branchCourses.length;
-
-              return (
-                <div 
+        ) : (
+          <>
+            {/* ============================================================ */}
+            {/* 1. BLOC DES BRANCHES (Caché si une branche est sélectionnée) */}
+            {/* ============================================================ */}
+            {selectedCategoryId === null && (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {categories.map(cat => {
+                    const branchCourses = courses.filter(c => c.categoryId === cat.id);
+                    const courseCount = branchCourses.length;
+                    return (
+                      <div 
                   key={cat.id} 
                   onClick={() => setSelectedCategoryId(cat.id)}
                   className="group bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:border-red-200 transition-all duration-300 cursor-pointer flex flex-col"
@@ -189,11 +253,11 @@ export default function Catalog() {
                     </div>
                   </div>
                 </div>
-              );
-            })}
-            
-            {/* --- CARTE SPÉCIALE "AUTRES FORMATIONS" --- */}
-            {otherCourses.length > 0 && (
+                    );
+                  })}
+
+                  {/* CARTE SPÉCIALE "AUTRES FORMATIONS" */}
+                  {otherCourses.length > 0 && (
                <div 
                  onClick={() => setSelectedCategoryId('OTHER')} 
                  className="group bg-slate-900 rounded-3xl border border-slate-700 overflow-hidden shadow-sm hover:shadow-xl hover:border-slate-500 transition-all duration-300 cursor-pointer flex flex-col"
@@ -230,114 +294,149 @@ export default function Catalog() {
                  </div>
                </div>
             )}
-          </div>
-
-        ) : (
-          
-          // --- VUE 2 : LES COURS D'UNE BRANCHE ---
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-            {(() => {
-              const coursesToShow = selectedCategoryId === 'OTHER' 
-                ? courses.filter(c => !c.categoryId) 
-                : courses.filter(c => c.categoryId === selectedCategoryId);
-
-              if (coursesToShow.length === 0) return (
-                <div className="col-span-3 bg-white rounded-3xl p-12 text-center border border-slate-200">
-                  <Settings className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-500 font-bold">Aucun module disponible dans cette filière pour le moment.</p>
                 </div>
-              );
+              </div>
+            )}
 
-              return coursesToShow.map(course => (
-                <div key={course.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-md hover:border-red-200 transition-all flex flex-col overflow-hidden group">
-                  <div className="h-44 relative overflow-hidden bg-slate-100">
-                    <img 
-                      src={course.imageUrl || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800"} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                      alt="course" 
-                    />
-                    <div className="absolute top-3 right-3">
-                      <span className="px-2.5 py-1 bg-slate-900/90 backdrop-blur-sm text-white text-[10px] font-black rounded-full flex items-center gap-1 shadow-sm">
-                        <Lock className="w-3 h-3 text-[#EB0A1E]" />
-                        Clé requise
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-5 flex flex-col flex-1">
-                    <h3 className="text-lg font-black mb-1.5 text-slate-900 group-hover:text-[#EB0A1E] transition-colors line-clamp-2 leading-snug">
-                      {course.title}
-                    </h3>
-                    <p className="text-slate-500 text-xs mb-5 line-clamp-2 flex-1 leading-relaxed">
-                      {course.description || "Formation technique standard pour l'amélioration continue."}
-                    </p>
-                    
-                    <button 
-                      onClick={() => setSelectedCourse(course)} 
-                      className="w-full py-2.5 bg-red-50 text-[#EB0A1E] hover:bg-[#EB0A1E] hover:text-white text-xs font-black uppercase tracking-wider rounded-xl transition-colors flex items-center justify-center gap-2"
-                    >
-                      <KeyRound className="w-4 h-4" />
-                      Débloquer l'accès
-                    </button>
-                  </div>
+            {/* ============================================================ */}
+            {/* 2. BLOC BARRE DE FILTRE + FORMATIONS (Toujours visible)      */}
+            {/* ============================================================ */}
+            <div className="space-y-6 animate-in fade-in duration-300">
+              
+              {/* Titre si on affiche tout */}
+              {selectedCategoryId === null && (
+                <div className="pt-6 border-t border-slate-200">
+                  <h2 className="text-2xl font-black text-slate-900">Toutes les formations</h2>
                 </div>
-              ));
-            })()}
-          </div>
+              )}
+
+              {/* BARRE D'OUTILS : Recherche & Filtres */}
+              <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
+                <div className="relative w-full md:w-96">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Rechercher une formation..."
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-[#EB0A1E] focus:ring-2 focus:ring-red-100 transition-all"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                  <select
+                    value={selectedLevel}
+                    onChange={(e) => setSelectedLevel(e.target.value)}
+                    className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-[#EB0A1E] transition-all cursor-pointer"
+                  >
+                    <option value="all">Tous les niveaux</option>
+                    <option value="Débutant">Niveau Débutant</option>
+                    <option value="Intermédiaire">Niveau Intermédiaire</option>
+                    <option value="Avancé">Niveau Expert</option>
+                  </select>
+
+                  <button
+                    onClick={() => setShowUnlockedOnly(!showUnlockedOnly)}
+                    className={`px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border ${
+                      showUnlockedOnly
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Débloqués uniquement</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* GRILLE DES COURS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCourses.length === 0 ? (
+                  <div className="col-span-full p-12 bg-white rounded-3xl border border-slate-200 text-center text-slate-500 font-bold flex flex-col items-center">
+                    <Search className="w-10 h-10 text-slate-300 mb-3" />
+                    Aucune formation ne correspond à vos critères de recherche.
+                  </div>
+                ) : (
+                  filteredCourses.map((course) => {
+                    const isUnlocked = myUnlockedCourseIds.includes(course.id);
+                    const catName = categories.find(cat => cat.id === course.categoryId)?.name || "Général";
+                    const courseLevel = course.level || "Débutant";
+
+                    return (
+                      <div key={course.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:border-red-200 hover:shadow-md transition-all group">
+                        <div className="h-44 relative bg-slate-100 overflow-hidden">
+                          <img src={course.imageUrl || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800"} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                          <div className="absolute top-3 left-3 flex gap-2">
+                            <span className="px-3 py-1 bg-white/90 backdrop-blur-sm text-slate-900 text-[10px] font-black uppercase tracking-wider rounded-full shadow-sm">{catName}</span>
+                            <span className="px-3 py-1 bg-[#111827]/80 backdrop-blur-sm text-white text-[10px] font-black uppercase tracking-wider rounded-full shadow-sm">{courseLevel}</span>
+                          </div>
+                          <div className="absolute top-3 right-3">
+                            {isUnlocked ? (
+                              <span className="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider rounded-full flex items-center gap-1 shadow-sm"><CheckCircle2 className="w-3 h-3" /> Débloqué</span>
+                            ) : (
+                              <span className="px-2.5 py-1 bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider rounded-full flex items-center gap-1 shadow-sm"><Lock className="w-3 h-3 text-[#EB0A1E]" /> Clé requise</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                          <div>
+                            <h3 className="font-bold text-base text-slate-900 group-hover:text-[#EB0A1E] transition-colors leading-snug">{course.title}</h3>
+                            <p className="text-xs text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">{course.description || "Formation technique standard."}</p>
+                          </div>
+
+                          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
+                              <Clock className="w-3.5 h-3.5 text-slate-400" /> <span>À votre rythme</span>
+                            </div>
+
+                            {isUnlocked ? (
+                              <button onClick={() => navigate(`/courses/${course.id}`)} className="px-4 py-2.5 bg-[#111827] hover:bg-[#EB0A1E] text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-md active:scale-95">
+                                <Play className="w-3.5 h-3.5" /><span>Accéder</span>
+                              </button>
+                            ) : (
+                              <button onClick={() => setSelectedCourse(course)} className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-[#EB0A1E] text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5">
+                                <KeyRound className="w-3.5 h-3.5" /><span>Débloquer</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </>
         )}
       </div>
 
-      {/* --- LA MODALE (FENÊTRE) DE LA CLÉ SECRÈTE --- */}
+      {/* --- LA MODALE DE LA CLÉ SECRÈTE --- */}
       {selectedCourse && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-md p-6 sm:p-8 rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 relative">
-            
-            {/* Design header modale */}
             <div className="absolute top-0 left-0 w-full h-2 bg-[#EB0A1E] rounded-t-3xl"></div>
-
             <div className="w-14 h-14 bg-red-50 text-[#EB0A1E] rounded-2xl flex items-center justify-center mb-5 shadow-sm">
               <KeyRound className="w-6 h-6" />
             </div>
-            
             <h3 className="text-2xl font-black mb-2 text-slate-900 tracking-tight">Activation Requise</h3>
             <p className="text-slate-500 text-xs mb-6 leading-relaxed">
-              Veuillez saisir la clé d'activation fournie par votre superviseur pour déverrouiller le module : <br/>
+              Veuillez saisir la clé d'activation fournie par votre formateur pour déverrouiller : <br/>
               <strong className="text-slate-800 text-sm">{selectedCourse.title}</strong>
             </p>
 
             {unlockError && (
               <div className="mb-5 p-3 bg-red-50 text-[#EB0A1E] text-xs rounded-xl font-bold border border-red-100 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{unlockError}</span>
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{unlockError}</span>
               </div>
             )}
 
             <form onSubmit={handleUnlock}>
-              <input 
-                type="text" 
-                value={accessKey}
-                onChange={(e) => setAccessKey(e.target.value.toUpperCase())}
-                placeholder="EX: TYT-2026-X"
-                className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-[#EB0A1E] focus:ring-4 focus:ring-red-100 outline-none mb-6 font-mono text-lg uppercase font-black text-center tracking-widest transition-all"
-                required
-              />
+              <input type="text" value={accessKey} onChange={(e) => setAccessKey(e.target.value.toUpperCase())} placeholder="EX: TYT-2026-X" className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-[#EB0A1E] outline-none mb-6 font-mono text-lg uppercase font-black text-center tracking-widest transition-all" required />
               <div className="flex gap-3">
-                <button 
-                  type="button"
-                  onClick={() => { setSelectedCourse(null); setUnlockError(''); setAccessKey(''); }}
-                  className="w-1/3 py-3 bg-slate-100 text-slate-600 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 transition-colors"
-                >
-                  Annuler
-                </button>
-                <button 
-                  type="submit"
-                  disabled={isUnlocking}
-                  className="w-2/3 py-3 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] transition-colors disabled:opacity-70 flex justify-center items-center gap-2 shadow-md"
-                >
-                  {isUnlocking ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <KeyRound className="w-4 h-4" />
-                  )}
+                <button type="button" onClick={() => { setSelectedCourse(null); setUnlockError(''); setAccessKey(''); }} className="w-1/3 py-3 bg-slate-100 text-slate-600 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 transition-colors">Annuler</button>
+                <button type="submit" disabled={isUnlocking} className="w-2/3 py-3 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] transition-colors disabled:opacity-70 flex justify-center items-center gap-2 shadow-md">
+                  {isUnlocking ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <KeyRound className="w-4 h-4" />}
                   <span>{isUnlocking ? "Vérification..." : "Débloquer"}</span>
                 </button>
               </div>

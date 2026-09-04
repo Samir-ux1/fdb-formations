@@ -113,6 +113,29 @@ export default function CoursePlayer() {
     setIsVideoFinished(false);
   }, [currentLesson]);
 
+  // --- NOUVEAU : CHRONOMÈTRE DE TEMPS D'APPRENTISSAGE ---
+  useEffect(() => {
+    if (!courseId) return;
+
+    // Toutes les 5 secondes, on ajoute 5 secondes au compteur de cet étudiant
+    const timer = setInterval(() => {
+      const userData = JSON.parse(localStorage.getItem('user'));
+      if (!userData) return;
+
+      // Crée une clé unique : ex: "time_student1_course5"
+      const storageKey = `time_user_${userData.id}_course_${courseId}`;
+      
+      // On récupère le temps précédent (ou 0 par défaut)
+      const currentSeconds = parseInt(localStorage.getItem(storageKey) || '0', 10);
+      
+      // On sauvegarde le nouveau temps (+5 secondes)
+      localStorage.setItem(storageKey, currentSeconds + 5);
+    }, 5000);
+
+    // On coupe le chronomètre dès que l'étudiant quitte la page !
+    return () => clearInterval(timer);
+  }, [courseId]);
+
   const toggleComplete = async (lessonId, quizScore = 20) => {
     try {
       const activeToken = localStorage.getItem('token'); 
@@ -636,7 +659,7 @@ export default function CoursePlayer() {
                 {completedLessons < course.lessons.length ? (
                   <><Lock className="w-4 h-4"/> Complétez le programme</>
                 ) : (
-                  <><Target className="w-4 h-4"/> Passer la certification</>
+                  <><Target className="w-4 h-4"/> Passer l'evaluation</>
                 )}
               </button>
             </div>
@@ -647,4 +670,4 @@ export default function CoursePlayer() {
       </main>
     </div>
   );
-}
+} 

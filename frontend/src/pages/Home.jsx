@@ -52,13 +52,18 @@ export default function Home() {
   const navigate = useNavigate();
   const [featuredCourses, setFeaturedCourses] = useState([]);
   const [user, setUser] = useState(null);
+  // NOUVEAU : État pour stocker le nombre de formations en cours
+  const [unlockedCount, setUnlockedCount] = useState(0);
 
   useEffect(() => {
+    let activeUser = null;
+    
     // 1. Récupérer l'utilisateur connecté
     try {
       const userData = localStorage.getItem('user');
       if (userData && userData !== "undefined") {
-        setUser(JSON.parse(userData));
+        activeUser = JSON.parse(userData);
+        setUser(activeUser);
       }
     } catch (e) {
       console.error("Erreur de lecture du user", e);
@@ -67,16 +72,39 @@ export default function Home() {
     // 2. Récupérer les formations depuis le Backend
     const fetchCourses = async () => {
       try {
+        // A. Les cours "À la une" pour tout le monde (visiteurs inclus)
         const response = await axios.get('http://localhost:5000/api/courses');
         setFeaturedCourses(response.data.slice(0, 3)); 
+
+        // B. NOUVEAU : Si l'utilisateur est connecté, on calcule ses cours "En cours"
+        if (activeUser) {
+          const token = localStorage.getItem('token');
+          const myCoursesRes = await axios.get('http://localhost:5000/api/courses/my-courses', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          
+          // On filtre les cours pour ne garder que ceux qui ne sont pas encore à 100%
+          const inProgressCourses = myCoursesRes.data.filter(course => {
+            const totalLessons = course.lessons?.length || 0;
+            const completedLessons = course.lessons?.filter(l => l.progresses?.length > 0).length || 0;
+            const progress = totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100);
+            
+            // Retourne "vrai" si le cours est commencé (ou à 0%) mais pas terminé (100%)
+            return progress >= 0 && progress < 100; 
+          });
+
+          // On met à jour le compteur !
+          setUnlockedCount(inProgressCourses.length);
+        }
+
       } catch (error) {
         console.error("Erreur de chargement des cours", error);
       }
     };
+    
     fetchCourses();
   }, []);
 
-  const unlockedCount = 0; // À lier plus tard avec les inscriptions réelles de l'utilisateur
 
   return (
     <div className="w-full bg-slate-50 min-h-screen font-sans text-slate-900 animate-in fade-in duration-300 pb-20">
@@ -183,10 +211,10 @@ export default function Home() {
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
-            </div>
+            </div> 
 
           </div>
-        </div>
+        </div> 
       </section>
 
       {/* 2. THREE FEATURE HIGHLIGHTS */}

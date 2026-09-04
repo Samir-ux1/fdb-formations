@@ -49,6 +49,7 @@ model Course {
   // Le lien de l'image de couverture
   imageUrl    String?  @default("https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800&auto=format&fit=crop") 
   passingScore Float @default(70.0)
+  level       String   @default("Débutant") // "Débutant", "Intermédiaire" ou "Avancé"
   
   createdAt   DateTime @default(now())
 

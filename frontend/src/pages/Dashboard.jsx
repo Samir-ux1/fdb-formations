@@ -24,6 +24,7 @@ export default function Dashboard() {
   // États spécifiques pour la carte de déblocage rapide de clés
   const [quickKey, setQuickKey] = useState('');
   const [keyMessage, setKeyMessage] = useState(null);
+  const [learningTime, setLearningTime] = useState("0m");
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -32,8 +33,36 @@ export default function Dashboard() {
     if (!token || !userData) {
       navigate('/login');
       return;
-    } 
-    setUser(JSON.parse(userData));
+    }
+    
+    // On parse l'utilisateur une seule fois
+    const parsedUser = JSON.parse(userData);
+    setUser(parsedUser);
+
+    // ==========================================
+    // NOUVEAU : CALCUL DU TEMPS D'APPRENTISSAGE
+    // ==========================================
+    let totalSeconds = 0;
+    // On parcourt la mémoire du navigateur pour cet utilisateur
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(`time_user_${parsedUser.id}_course_`)) {
+        totalSeconds += parseInt(localStorage.getItem(key) || '0', 10);
+      }
+    }
+    // On convertit les secondes en Heures / Minutes
+    if (totalSeconds === 0) {
+      setLearningTime("0m");
+    } else {
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      if (hours > 0) {
+        setLearningTime(`${hours}h ${minutes}m`);
+      } else {
+        setLearningTime(`${minutes}m`);
+      }
+    }
+    // ==========================================
 
     const fetchMyCourses = async () => {
       try {
@@ -60,7 +89,6 @@ export default function Dashboard() {
 
         if (coursesWithProgress.length > 0) {
           // 2. On trouve le cours "En cours" (celui qui a + de 0% mais moins de 100%)
-          // S'il n'y en a pas, on prend le premier de la liste
           const current = coursesWithProgress.find(c => c.progress > 0 && c.progress < 100) || coursesWithProgress[0];
           setActiveCourse(current);
           
@@ -118,6 +146,12 @@ export default function Dashboard() {
     ? Math.round(courses.reduce((acc, c) => acc + (c.progress || 0), 0) / courses.length)
     : 0;
 
+  // 2. On calcule le niveau technique dynamiquement
+  const technicalLevel = completedCourses.length === 0 ? "Débutant" 
+                       : completedCourses.length <= 3 ? "Initié" 
+                       : completedCourses.length <= 6 ? "Confirmé"
+                       : "Expert";
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto font-sans text-slate-800 space-y-8 animate-in fade-in duration-300">
       
@@ -136,9 +170,8 @@ export default function Dashboard() {
     <div className="min-w-0">
       <div className="flex items-center gap-2 mb-1">
         <span className="px-3 py-0.5 bg-red-50 text-[#EB0A1E] text-[10px] font-black uppercase tracking-wider rounded-full border border-red-100">
-          {user.role === 'INSTRUCTOR' ? 'Formateur Instructeur' : 'Apprenant Certifié'}
+          {user.role === 'INSTRUCTOR' ? 'Formateur Instructeur' : 'Apprenant'}
         </span>
-        <span className="text-xs text-slate-400 font-mono">ID : {user.id}</span>
       </div>
       <h1 className="text-2xl sm:text-3xl font-black text-slate-900 truncate">{user.name}</h1>
       <p className="text-xs sm:text-sm text-slate-500 truncate">{user.email}</p>
@@ -158,7 +191,7 @@ export default function Dashboard() {
     )}
 
     {/* Jauge de Progression Circulaire (SVG) */}
-    <div className="bg-slate-50 p-3.5 sm:p-4 rounded-2xl border border-slate-200 flex items-center gap-2">
+    <div className="bg-slate-50 p-3.5 sm:p-3 rounded-2xl border border-slate-200 flex items-center gap-2">
       <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
         <svg className="w-14 h-14 transform -rotate-90">
           <circle
@@ -195,7 +228,9 @@ export default function Dashboard() {
 
       {/* 4 Statistics Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+        
+        {/* CARTE 1 : Cours Débloqués */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
           <div className="w-10 h-10 rounded-xl bg-red-50 text-[#EB0A1E] flex items-center justify-center mb-3">
             <GraduationCap className="w-5 h-5" />
           </div>
@@ -203,7 +238,8 @@ export default function Dashboard() {
           <span className="text-xs font-semibold text-slate-400">Cours Débloqués</span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+        {/* CARTE 2 : Formations Validées */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
             <CheckCircle2 className="w-5 h-5" />
           </div>
@@ -211,21 +247,24 @@ export default function Dashboard() {
           <span className="text-xs font-semibold text-slate-400">Formations Validées</span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+        {/* CARTE 3 : Temps Apprentissage (Dynamique !) */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
           <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center mb-3">
             <Clock className="w-5 h-5" />
           </div>
-          <span className="text-2xl font-black text-slate-900 block">4h 30m</span>
+          <span className="text-2xl font-black text-slate-900 block">{learningTime}</span>
           <span className="text-xs font-semibold text-slate-400">Temps Apprentissage</span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+        {/* CARTE 4 : Niveau Technique (Dynamique !) */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
           <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
             <Award className="w-5 h-5" />
           </div>
-          <span className="text-2xl font-black text-slate-900 block">--</span>
+          <span className="text-xl font-black text-slate-900 block">{technicalLevel}</span>
           <span className="text-xs font-semibold text-slate-400">Niveau technique</span>
         </div>
+
       </div>
 
       {/* Main Two-Column Layout */}
@@ -250,7 +289,7 @@ export default function Dashboard() {
                 <div className="space-y-2 relative z-10 max-w-md">
                   <span className="px-3 py-1 bg-[#EB0A1E] text-white text-[10px] font-black uppercase tracking-wider rounded-full">
                     Reprendre la formation
-                  </span>
+                  </span><br /><br />
                   <h3 className="text-xl sm:text-2xl font-black text-white">{activeCourse.title}</h3>
                   <p className="text-xs text-slate-400 line-clamp-2">{activeCourse.description}</p>
                   <div className="flex items-center gap-3 pt-1 text-xs text-slate-300 font-semibold">
@@ -258,7 +297,7 @@ export default function Dashboard() {
                     <span>•</span>
                     <span>{activeCourse.totalLessons} leçons ({activeCourse.completedLessons} terminées)</span>
                   </div>
-                </div>
+                </div> 
 
                 <button
                   onClick={() => navigate(`/courses/${activeCourse.id}`)}

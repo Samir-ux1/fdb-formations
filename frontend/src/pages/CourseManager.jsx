@@ -12,7 +12,7 @@ export default function CourseManager() {
   const { courseId } = useParams();
   const navigate = useNavigate();
   
-  const [course, setCourse] = useState(null);
+  const [course, setCourse] = useState(null); 
   const [students, setStudents] = useState([]); 
   const [categories, setCategories] = useState([]); 
   
@@ -289,7 +289,8 @@ export default function CourseManager() {
                     accessKey: course.accessKey, 
                     imageUrl: course.imageUrl || '', 
                     passingScore: course.passingScore || 70,
-                    categoryId: course.categoryId || '' 
+                    categoryId: course.categoryId || '',
+                    level: course.level || 'Débutant'
                   });
                   setIsEditingCourse(true);
                 }}
@@ -704,12 +705,24 @@ export default function CourseManager() {
                 <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5"><Tag className="w-3.5 h-3.5"/> Titre</label>
                 <input type="text" value={editCourseData.title} onChange={e => setEditCourseData({...editCourseData, title: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm font-semibold transition-all" required />
               </div>
-              <div>
-                <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5"><LayoutTemplate className="w-3.5 h-3.5"/> Filière</label>
-                <select value={editCourseData.categoryId} onChange={(e) => setEditCourseData({...editCourseData, categoryId: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm transition-all">
-                  <option value="">-- Mode Transversal (Sans Filière) --</option>
-                  {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                </select>
+              {/* LA NOUVELLE GRILLE MODIFICATION : Filière + Niveau */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5"><LayoutTemplate className="w-3.5 h-3.5"/> Filière</label>
+                  <select value={editCourseData.categoryId} onChange={(e) => setEditCourseData({...editCourseData, categoryId: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm transition-all">
+                    <option value="">-- Transversal --</option>
+                    {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5"><Target className="w-3.5 h-3.5"/> Niveau</label>
+                  <select value={editCourseData.level} onChange={(e) => setEditCourseData({...editCourseData, level: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm transition-all">
+                    <option value="Débutant">Débutant</option>
+                    <option value="Intermédiaire">Intermédiaire</option>
+                    <option value="Avancé">Avancé</option>
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5"><AlignLeft className="w-3.5 h-3.5"/> Description</label>
@@ -746,7 +759,7 @@ export default function CourseManager() {
       {/* ========================================================= */}
       {selectedStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col relative overflow-hidden">
+          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col relative overflow-hidden">
             
             {/* Décoration Header */}
             <div className={`absolute top-0 left-0 w-full h-3 ${selectedStudent.status === 'VALIDATED' ? 'bg-emerald-500' : selectedStudent.status === 'FAILED' ? 'bg-red-500' : 'bg-slate-800'}`}></div>
@@ -766,29 +779,29 @@ export default function CourseManager() {
               </button>
             </div>
 
-            <div className="p-6 sm:p-8 space-y-8">
+            <div className="p-4 sm:p-3 space-y-5">
               
               {/* Statistiques Globales */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><KeyRound className="w-3.5 h-3.5" /> Date d'activation</p>
-                  <p className="font-bold text-slate-900 text-sm">{new Date(selectedStudent.createdAt).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><KeyRound className="w-3 h-3" /> Date d'activation</p>
+                  <p className="font-bold text-slate-900 text-sm">{new Date(selectedStudent.createdAt).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p>
                 </div>
-                <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Target className="w-3.5 h-3.5" /> Examen soumis le</p>
+                <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><Target className="w-3 h-3" /> Examen soumis</p>
                   <p className="font-bold text-slate-900 text-sm">
-                    {selectedStudent.completedAt ? new Date(selectedStudent.completedAt).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' }) : "Pas encore soumis"}
+                    {selectedStudent.completedAt ? new Date(selectedStudent.completedAt).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : "Pas encore soumis"}
                   </p>
                 </div>
-                <div className="col-span-2 p-6 bg-slate-900 rounded-2xl border border-slate-800 flex justify-between items-center text-white shadow-lg relative overflow-hidden">
-                  <div className="absolute top-0 right-0 -mr-10 -mt-10 w-40 h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
+                <div className="col-span-2 p-4 sm:p-5 bg-slate-900 rounded-2xl border border-slate-800 flex justify-between items-center text-white shadow-lg relative overflow-hidden">
+                  <div className="absolute top-0 right-0 -mr-10 -mt-10 w-32 h-32 bg-white opacity-5 rounded-full blur-2xl"></div>
                   <div className="relative z-10">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Temps d'apprentissage</p>
-                    <p className="font-black text-2xl">{calculateDuration(selectedStudent.createdAt, selectedStudent.completedAt)}</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5 flex items-center gap-1.5"><Clock className="w-3 h-3" /> Apprentissage</p>
+                    <p className="font-black text-xl">{calculateDuration(selectedStudent.createdAt, selectedStudent.completedAt)}</p>
                   </div>
                   <div className="text-right relative z-10">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Note de certification</p>
-                    <p className={`font-black text-3xl ${selectedStudent.status === 'VALIDATED' ? 'text-emerald-400' : selectedStudent.status === 'FAILED' ? 'text-[#EB0A1E]' : 'text-white'}`}>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Note de certification</p>
+                    <p className={`font-black text-2xl ${selectedStudent.status === 'VALIDATED' ? 'text-emerald-400' : selectedStudent.status === 'FAILED' ? 'text-[#EB0A1E]' : 'text-white'}`}>
                       {selectedStudent.finalGrade !== null ? `${selectedStudent.finalGrade}/20` : 'N/A'}
                     </p>
                   </div>
@@ -797,18 +810,18 @@ export default function CourseManager() {
 
               {/* Détails par leçon */}
               <div>
-                <h4 className="font-black text-slate-900 mb-4 text-lg">Détail des chapitres validés</h4>
-                <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-2xl divide-y divide-slate-100 bg-slate-50">
+                <h4 className="font-black text-slate-900 mb-2.5 text-sm uppercase tracking-wider">Chapitres validés</h4>
+                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-2xl divide-y divide-slate-100 bg-slate-50 custom-scrollbar">
                   {(!selectedStudent.user.lessonProgresses || selectedStudent.user.lessonProgresses.length === 0) ? (
-                    <p className="p-6 text-slate-500 text-sm font-semibold text-center">Aucun chapitre terminé.</p>
+                    <p className="p-4 text-slate-500 text-xs font-semibold text-center">Aucun chapitre terminé.</p>
                   ) : (
                     selectedStudent.user.lessonProgresses.map((progress, idx) => (
-                      <div key={idx} className="p-4 flex justify-between items-center bg-white hover:bg-slate-50 transition-colors">
-                        <p className="text-sm font-bold text-slate-800 flex items-center gap-3">
-                          <span className="w-6 h-6 bg-slate-100 text-slate-500 rounded-md flex items-center justify-center text-xs">{progress.lesson.order}</span>
-                          {progress.lesson.title}
+                      <div key={idx} className="p-3 flex justify-between items-center bg-white hover:bg-slate-50 transition-colors">
+                        <p className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                          <span className="w-5 h-5 bg-slate-100 text-slate-500 rounded flex items-center justify-center text-[10px]">{progress.lesson.order}</span>
+                          <span className="truncate max-w-[200px]">{progress.lesson.title}</span>
                         </p>
-                        <span className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${(progress.score ?? 20) >= 10 ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-[#EB0A1E] border border-red-100'}`}>
+                        <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0 ${(progress.score ?? 20) >= 10 ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-[#EB0A1E] border border-red-100'}`}>
                           Score: {progress.score ?? 20}/20
                         </span>
                       </div>
@@ -818,9 +831,9 @@ export default function CourseManager() {
               </div>
 
               {/* Score Examen Final Brut */}
-              <div className="p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm">
-                <span className="font-black text-slate-700 uppercase tracking-wider text-xs">Note brute de l'Examen Final :</span>
-                <span className="font-black text-lg bg-slate-100 px-3 py-1 rounded-lg text-slate-900">{selectedStudent.examScore !== null ? `${selectedStudent.examScore}/20` : 'Non passé'}</span>
+              <div className="p-4 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm mt-2">
+                <span className="font-black text-slate-700 uppercase tracking-wider text-[10px]">Note brute Examen Final :</span>
+                <span className="font-black text-base bg-slate-100 px-3 py-1 rounded-lg text-slate-900">{selectedStudent.examScore !== null ? `${selectedStudent.examScore}/20` : 'Non passé'}</span>
               </div>
               
             </div>

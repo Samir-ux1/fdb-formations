@@ -11,7 +11,8 @@ import {
   ChevronDown,
   Settings,
   PlaySquare,
-  LogOut
+  LogOut,
+  UserRound
 } from 'lucide-react';
 
 export default function Layout() {
@@ -66,9 +67,6 @@ export default function Layout() {
           
           {/* GAUCHE : Logo */}
           <div className="flex items-center gap-3">
-            <button className="flex items-center justify-center w-10 h-10 text-slate-700 hover:bg-slate-100 transition-colors rounded-xl active:scale-95 duration-150">
-              <Menu className="w-5 h-5" />
-            </button>
 
             <Link to="/" className="flex items-center gap-3 cursor-pointer group">
               <div className="w-8 h-8 rounded-lg bg-[#EB0A1E] flex items-center justify-center text-white shadow-sm group-hover:bg-[#BD0014] transition-colors">
@@ -159,7 +157,11 @@ export default function Layout() {
 
                         <div className="space-y-1">
                           <Link to="/dashboard" onClick={() => setProfileOpen(false)} className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-                            <span className="flex items-center gap-2"><GraduationCap className="w-4 h-4 text-[#EB0A1E]" />Mon Tableau de bord</span>
+                            <span className="flex items-center gap-2"><GraduationCap  className="w-4 h-4 text-[#EB0A1E]" />Mon Tableau de bord</span>
+                          </Link>
+
+                          <Link to="/account" onClick={() => setProfileOpen(false)} className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+                            <span className="flex items-center gap-2"><UserRound className="w-4 h-4 text-[#EB0A1E]" />Mon Compte</span>
                           </Link>
 
                           {userRole === 'INSTRUCTOR' && (
