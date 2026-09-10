@@ -188,6 +188,7 @@ export default function Layout() {
             )}
           </div>
         </div>
+        
       </header>
 
       {/* CONTENU DE LA PAGE */}

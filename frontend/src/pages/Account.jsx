@@ -186,6 +186,18 @@ export default function Account() {
                 />
               </div>
 
+              {/* SECTEUR D'AFFECTATION */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Secteur d'affectation</label>
+                <input 
+                  type="text" 
+                  value={user.sector || 'Non affecté'} 
+                  disabled 
+                  className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-sm text-slate-500 font-bold cursor-not-allowed uppercase" 
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Géré par votre administrateur.</p>
+              </div>
+
               <div className="pt-4 border-t border-slate-100">
                 <button 
                   type="submit" disabled={isSaving}

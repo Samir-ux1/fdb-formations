@@ -9,6 +9,7 @@ router.get('/', courseController.getAllCourses);
 router.post('/', verifyToken, isInstructor, courseController.createCourse);
 router.get('/my-courses', verifyToken, courseController.getMyCourses);
 router.get('/instructor-courses', verifyToken, isInstructor, courseController.getInstructorCourses);
+router.get('/instructor-students', verifyToken, isInstructor, courseController.getAllInstructorStudents);
 
 // 2. ROUTES DU COURS SPÉCIFIQUE
 router.get('/:courseId', verifyToken, courseController.getCourseById);
@@ -33,6 +34,7 @@ router.delete('/:courseId/lessons/:lessonId/questions/:questionId', verifyToken,
 
 // Routes pour les étudiants
 router.get('/:courseId/students', verifyToken, isInstructor, courseController.getCourseStudents);
+router.put('/:courseId/students/:studentId/field-grade', verifyToken, isInstructor, courseController.updateFieldGrade);
 router.post('/:courseId/students/:studentId/reset', verifyToken, isInstructor, courseController.resetStudent);
 router.post('/:courseId/students/:studentId/status', verifyToken, isInstructor, courseController.overrideStudentStatus);
 // CETTE LIGNE DOIT TOUJOURS ÊTRE LA TOUTE DERNIÈRE !

@@ -71,3 +71,57 @@ exports.updatePassword = async (req, res) => {
     res.status(500).json({ message: "Erreur serveur.", error: error.message });
   }
 };
+
+// --- RÉCUPÉRER LES UTILISATEURS EN ATTENTE (Pour les notifications) ---
+exports.getPendingUsers = async (req, res) => {
+  try {
+    const pendingUsers = await prisma.user.findMany({
+      where: { status: 'PENDING' },
+      select: { id: true, name: true, email: true, createdAt: true }
+    });
+    res.status(200).json(pendingUsers);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur.", error: error.message });
+  }
+};
+
+// --- APPROUVER OU REFUSER UN UTILISATEUR (AVEC SECTEUR) ---
+exports.reviewUser = async (req, res) => {
+  try {
+    const { userId, status, sector } = req.body; // On récupère le secteur choisi
+
+    // On prépare les données à modifier
+    let updateData = { status };
+    
+    // Si l'admin approuve, on lui affecte le secteur !
+    if (status === 'APPROVED' && sector) {
+      updateData.sector = sector;
+    }
+
+    await prisma.user.update({
+      where: { id: parseInt(userId) },
+      data: updateData
+    });
+
+    res.status(200).json({ message: `Utilisateur ${status === 'APPROVED' ? 'Approuvé' : 'Refusé'}.` });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur.", error: error.message });
+  }
+};
+
+// --- MODIFIER LE SECTEUR D'UN TECHNICIEN ---
+exports.updateUserSector = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const { sector } = req.body;
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { sector }
+    });
+
+    res.status(200).json({ message: "Secteur mis à jour avec succès." });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur.", error: error.message });
+  }
+};

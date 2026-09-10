@@ -11,24 +11,31 @@ import {
   Users, 
   Target, 
   PlaySquare, 
-  Edit, 
+  Edit,
+  Search,
   Trash2,
   CheckCircle2,
   XCircle,
   Clock,
   Image as ImageIcon,
   AlignLeft,
-  Tag
+  Tag,
+  Download,
+  AlertTriangle, 
+  Bell, 
+  Filter
 } from 'lucide-react';
 
 export default function InstructorPortal() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [courses, setCourses] = useState([]);
-  const [categories, setCategories] = useState([]); 
+  const [categories, setCategories] = useState([]);
 
   const [allStudents, setAllStudents] = useState([]);
-  const [searchTerm, setSearchTerm] = useState(''); // Pour la barre de recherche
+  const [searchTerm, setSearchTerm] = useState(''); 
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sectorFilter, setSectorFilter] = useState('ALL');
   
   const [activeTab, setActiveTab] = useState('COURSES'); 
 
@@ -40,6 +47,14 @@ export default function InstructorPortal() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryData, setCategoryData] = useState({ name: '', imageUrl: '' });
+
+  const [pendingUsers, setPendingUsers] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  // États pour l'approbation d'un étudiant
+  const [approvingUserId, setApprovingUserId] = useState(null);
+  const [selectedSector, setSelectedSector] = useState('');
+  const [isSectorModalOpen, setIsSectorModalOpen] = useState(false);
+  
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -61,8 +76,12 @@ export default function InstructorPortal() {
       });
       const catRes = await axios.get('http://localhost:5000/api/categories');
       
+      const pendingRes = await axios.get('http://localhost:5000/api/users/pending', { headers: { Authorization: `Bearer ${token}` } });
+      const studentsRes = await axios.get('http://localhost:5000/api/courses/instructor-students', { headers: { Authorization: `Bearer ${token}` } });
       setCourses(response.data);
       setCategories(catRes.data);
+      setPendingUsers(pendingRes.data);
+      setAllStudents(studentsRes.data);
 
       // --- NOUVEAU : RÉCUPÉRER TOUS LES ÉTUDIANTS ---
       // On boucle sur chaque cours pour récupérer ses étudiants via votre API existante
@@ -86,6 +105,20 @@ export default function InstructorPortal() {
       
     } catch (error) {
       console.error("Erreur de récupération des cours", error);
+    }
+  };
+
+  const handleReviewUser = async (userId, status) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put('http://localhost:5000/api/users/review', { userId, status, sector: status === 'APPROVED' ? selectedSector : null }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setApprovingUserId(null);
+      setSelectedSector('');
+      fetchInstructorCourses(token); // Met à jour le compteur de notifications instantanément !
+    } catch (error) {
+      alert("Erreur lors de la validation.");
     }
   };
 
@@ -145,12 +178,93 @@ export default function InstructorPortal() {
     }
   };
 
-  // Filtrer les étudiants pour la barre de recherche
-  const filteredStudents = allStudents.filter(student => 
-    student.user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    student.user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.courseTitle.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // --- LOGIQUE RH (FILTRES ET KPI) ---
+
+  // 1. Fonction pour savoir si un technicien est en retard
+  const isLate = (enrollment) => {
+    if (enrollment.status !== 'IN_PROGRESS' || !enrollment.timeLimitDays) return false;
+    const deadline = new Date(new Date(enrollment.createdAt).getTime() + enrollment.timeLimitDays * 24 * 60 * 60 * 1000);
+    return new Date() > deadline;
+  };
+
+  // 2. Application des filtres
+  const filteredStudents = allStudents.filter(enrollment => {
+    const matchSearch = enrollment.user.name.toLowerCase().includes(searchTerm.toLowerCase()) || enrollment.courseTitle.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    let matchStatus = true;
+    if (statusFilter === 'LATE') matchStatus = isLate(enrollment);
+    else if (statusFilter !== 'ALL') matchStatus = enrollment.status === statusFilter;
+
+    const matchSector = sectorFilter === 'ALL' || enrollment.user.sector === sectorFilter;
+
+    return matchSearch && matchStatus && matchSector;
+  });
+
+  // 3. Calcul des KPI (Chiffres clés)
+  const kpiTotal = allStudents.length;
+  const kpiValidated = allStudents.filter(e => e.status === 'VALIDATED').length;
+  const kpiCompliance = kpiTotal > 0 ? Math.round((kpiValidated / kpiTotal) * 100) : 0;
+  const kpiLate = allStudents.filter(e => isLate(e)).length;
+
+  // 4. Fonction d'Export Excel (CSV)
+  const handleExportCSV = () => {
+    // En-têtes du fichier
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Nom,Email,Secteur,Formation,Statut,Note,Date_Inscription\n";
+
+    // Lignes de données
+    filteredStudents.forEach(e => {
+      const nom = e.user.name;
+      const email = e.user.email;
+      const secteur = e.user.sector || "Non assigné";
+      const cours = e.courseTitle;
+      const statut = isLate(e) ? "EN RETARD" : e.status;
+      const note = e.finalGrade ? `${e.finalGrade}/20` : "N/A";
+      const date = new Date(e.createdAt).toLocaleDateString('fr-FR');
+      
+      csvContent += `"${nom}","${email}","${secteur}","${cours}","${statut}","${note}","${date}"\n`;
+    });
+
+    // Création et téléchargement du fichier
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Rapport_Formations_${new Date().toLocaleDateString('fr-FR')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // 5. Fonction Relancer
+  const handleRemindStudent = (name) => {
+    alert(`Un email de relance automatique a été simulé pour ${name} ! 📧`);
+  };
+
+  // Modifier le secteur d'un étudiant depuis la liste
+  const handleUpdateSector = async (userId, newSector) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(`http://localhost:5000/api/users/${userId}/sector`, { sector: newSector }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchInstructorCourses(token); // Rafraîchit les données pour afficher le nouveau secteur partout
+    } catch (error) {
+      // ON AFFICHE LE VRAI MESSAGE :
+      alert("Erreur Secteur : " + (error.response?.data?.message || error.message));
+    }
+  };
+
+  // Extraire la liste unique des étudiants (pour éviter les doublons s'ils ont plusieurs cours)
+  const uniqueStudents = [];
+  const studentIds = new Set();
+  if (allStudents) {
+    allStudents.forEach(enrollment => {
+      if (!studentIds.has(enrollment.user.id)) {
+        studentIds.add(enrollment.user.id);
+        uniqueStudents.push(enrollment.user);
+      }
+    });
+  }
 
   if (!user) return null;
 
@@ -214,19 +328,82 @@ export default function InstructorPortal() {
       <main className="md:ml-64 flex-1 pb-12 pt-16 md:pt-4">
         
         {/* En-tête mobile (caché sur desktop car sidebar) */}
-        <header className="md:hidden h-16 bg-white border-b border-slate-200 px-6 flex items-center sticky top-16 z-30 justify-between">
-          <h2 className="text-lg font-black text-slate-900">{activeTab === 'COURSES' ? 'Formations' : 'Filières'}</h2>
-          <div className="flex gap-2">
-            <button onClick={() => setActiveTab('COURSES')} className={`p-2 rounded-lg ${activeTab === 'COURSES' ? 'bg-red-50 text-[#EB0A1E]' : 'text-slate-400'}`}><BookOpen className="w-5 h-5"/></button>
-            <button onClick={() => setActiveTab('BRANCHES')} className={`p-2 rounded-lg ${activeTab === 'BRANCHES' ? 'bg-red-50 text-[#EB0A1E]' : 'text-slate-400'}`}><FolderKanban className="w-5 h-5"/></button>
-            <button onClick={() => setActiveTab('STUDENTS')} className={`p-2 rounded-lg ${activeTab === 'STUDENTS' ? 'bg-red-50 text-[#EB0A1E]' : 'text-slate-400'}`}><Users className="w-5 h-5"/></button>
+        <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-20 z-30">
+          <h2 className="text-xl font-bold">{activeTab === 'COURSES' ? 'Vos Formations' : activeTab === 'BRANCHES' ? 'Vos Branches' : 'Approbations'}</h2>
+          
+          <div className="flex items-center gap-6">
+            {/* --- LE SYSTÈME DE NOTIFICATION 🔔 --- */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                {/* Le Point Rouge s'il y a des gens en attente ! */}
+                {pendingUsers.length > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-red-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                    {pendingUsers.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Le menu déroulant des notifications */}
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-sm shadow-xl border border-slate-200 py-2 z-50">
+                  <div className="px-4 py-2 border-b border-slate-100 font-bold text-sm">Notifications</div>
+                  {pendingUsers.length === 0 ? (
+                    <div className="p-4 text-sm text-slate-500 text-center">Aucune nouvelle inscription.</div>
+                  ) : (
+                    <div className="max-h-60 overflow-y-auto">
+                      {pendingUsers.map(u => (
+                        <div key={u.id} className="p-4 border-b border-slate-50 hover:bg-slate-50">
+                          <p className="text-sm font-bold text-slate-900">{u.name}</p>
+                          <p className="text-[10px] text-slate-500 mb-3 uppercase tracking-wider">{u.email}</p>
+                          
+                          {/* SI ON CLIQUE SUR APPROUVER, ON AFFICHE LE CHOIX DU SECTEUR */}
+                          {approvingUserId === u.id ? (
+                            <div className="flex flex-col gap-2 mt-2 p-2 bg-slate-100 rounded-sm border border-slate-200">
+                              <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Affecter à un secteur :</label>
+                              <select 
+                                value={selectedSector} 
+                                onChange={(e) => setSelectedSector(e.target.value)}
+                                className="w-full p-1.5 text-xs border border-slate-300 rounded-sm outline-none focus:border-red-600"
+                              >
+                                <option value="">-- Choisir --</option>
+                                <option value="Casablanca">Casablanca</option>
+                                <option value="Tanger">Tanger</option>
+                                <option value="Rabat">Rabat</option>
+                                <option value="Marrakech">Marrakech</option>
+                                <option value="Agadir">Agadir</option>
+                                <option value="Autre">Autre région</option>
+                              </select>
+                              <div className="flex gap-2 mt-1">
+                                <button onClick={() => handleReviewUser(u.id, 'APPROVED')} disabled={!selectedSector} className="flex-1 bg-green-600 text-white text-[10px] py-1.5 rounded-sm font-bold hover:bg-green-700 uppercase disabled:opacity-50">Valider</button>
+                                <button onClick={() => setApprovingUserId(null)} className="flex-1 bg-slate-200 text-slate-600 text-[10px] py-1.5 rounded-sm font-bold hover:bg-slate-300 uppercase">Annuler</button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* BOUTONS PAR DÉFAUT */
+                            <div className="flex gap-2">
+                              <button onClick={() => setApprovingUserId(u.id)} className="flex-1 bg-green-50 text-green-700 border border-green-200 text-xs py-1.5 rounded-sm font-bold hover:bg-green-100 transition-colors">Approuver</button>
+                              <button onClick={() => handleReviewUser(u.id, 'REJECTED')} className="flex-1 bg-red-50 text-red-700 border border-red-200 text-xs py-1.5 rounded-sm font-bold hover:bg-red-100 transition-colors">Refuser</button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {/* ------------------------------------- */}
           </div>
         </header>
 
         <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
           
           {/* HEADER DE SECTION */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm mb-8">
             <div>
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">
                 {activeTab === 'COURSES' ? 'Gestion des Formations' 
@@ -236,104 +413,186 @@ export default function InstructorPortal() {
               <p className="text-slate-500 text-sm mt-1">
                 {activeTab === 'COURSES' ? 'Créez du contenu technique et suivez les certifications de vos équipes.' 
                  : activeTab === 'BRANCHES' ? 'Organisez vos modules par spécialités (ex: CACES, SAS, TPS).' 
-                 : 'Visualisez les progressions de tous les collaborateurs inscrits à vos modules.'}
+                 : 'Visualisez les progressions de tous les techniciens inscrits à vos modules.'}
               </p>
             </div>
-            {activeTab === 'COURSES' ? (
+            
+            {/* Les boutons s'affichent uniquement si on est dans le bon onglet */}
+            {activeTab === 'COURSES' && (
               <button 
                 onClick={() => setIsCreating(true)} 
                 className="px-5 py-2.5 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] transition-all flex items-center gap-2 shadow-sm active:scale-95"
               >
-                <Plus className="w-4 h-4" />
+                <span className="text-lg font-bold leading-none">+</span>
                 <span>Nouveau Module</span>
               </button>
-            ) : (
+            )}
+            
+            {activeTab === 'BRANCHES' && (
               <button 
                 onClick={() => { setEditingCategory(null); setCategoryData({ name: '', imageUrl: '' }); setIsCategoryModalOpen(true); }} 
                 className="px-5 py-2.5 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] transition-all flex items-center gap-2 shadow-sm active:scale-95"
               >
-                <Plus className="w-4 h-4" />
+                <span className="text-lg font-bold leading-none">+</span>
                 <span>Nouvelle Filière</span>
               </button>
-            )}
-             {activeTab === 'STUDENTS' && (
-              <div className="relative w-full sm:w-64">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input 
-                  type="text" 
-                  placeholder="Rechercher un apprenant..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#EB0A1E] focus:ring-2 focus:ring-red-100 text-sm font-semibold transition-all"
-                />
-              </div>
             )}
           </div>
 
           {/* ========================================= */}
-          {/* ONGLET : SUIVI GLOBAL ÉTUDIANTS (NOUVEAU) */}
+          {/* ONGLET : SUIVI GLOBAL ÉTUDIANTS (VUE RH)  */}
           {/* ========================================= */}
           {activeTab === 'STUDENTS' && (
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="space-y-6">
+              
+              {/* 1. LES KPI (Indicateurs Clés) */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white p-6 rounded-sm border border-slate-200 shadow-sm border-t-4 border-t-slate-800">
+                  <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1">Taux de validation </p>
+                  <h3 className={`text-3xl font-black ${kpiCompliance >= 80 ? 'text-emerald-600' : 'text-orange-500'}`}>{kpiCompliance}%</h3>
+                </div>
+                <div 
+                  onClick={() => setIsSectorModalOpen(true)}
+                  className="bg-white p-6 rounded-sm border border-slate-200 shadow-sm cursor-pointer hover:border-[#EB0A1E] hover:shadow-md transition-all group"
+                  title="Cliquez pour gérer les secteurs des apprenants"
+                >
+                  <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1 group-hover:text-[#EB0A1E] transition-colors flex justify-between items-center">
+                    Total Inscrits <span>✎ Gérer</span>
+                  </p>
+                  <h3 className="text-3xl font-black text-slate-900 group-hover:text-[#EB0A1E] transition-colors">{kpiTotal}</h3>
+                </div>
+                <div className="bg-white p-6 rounded-sm border border-slate-200 shadow-sm">
+                  <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1">Certifications Validées</p>
+                  <h3 className="text-3xl font-black text-emerald-600">{kpiValidated}</h3>
+                </div>
+                <div className="bg-white p-6 rounded-sm border border-slate-200 shadow-sm border-t-4 border-t-[#EB0A1E]">
+                  <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1">Alertes / En Retard</p>
+                  <h3 className="text-3xl font-black text-[#EB0A1E]">{kpiLate}</h3>
+                </div>
+              </div>
+
+              {/* 2. LA BARRE DE FILTRES ET D'EXPORT */}
+              <div className="bg-white p-4 rounded-sm border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+                
+                <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                  {/* Recherche */}
+                  <div className="relative flex-1 md:w-64">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input type="text" placeholder="Rechercher technicien, cours..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-sm focus:border-[#EB0A1E] outline-none" />
+                  </div>
+                  
+                  {/* Filtre Secteur */}
+                  <div className="relative">
+                    <Filter className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <select value={sectorFilter} onChange={e => setSectorFilter(e.target.value)} className="pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-sm text-sm focus:border-[#EB0A1E] outline-none appearance-none font-semibold text-slate-700">
+                      <option value="ALL">Tous les secteurs</option>
+                      <option value="Casablanca">Casablanca</option>
+                      <option value="Tanger">Tanger</option>
+                      <option value="Rabat">Rabat</option>
+                      <option value="Marrakech">Marrakech</option>
+                      <option value="Agadir">Agadir</option>
+                    </select>
+                  </div>
+
+                  {/* Filtre Statut */}
+                  <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-sm focus:border-[#EB0A1E] outline-none font-semibold text-slate-700">
+                    <option value="ALL">Tous les statuts</option>
+                    <option value="VALIDATED">Validés uniquement</option>
+                    <option value="IN_PROGRESS">En cours</option>
+                    <option value="LATE">⚠️ En Retard</option>
+                    <option value="FAILED">Échecs</option>
+                  </select>
+                </div>
+
+                {/* Bouton Export Excel */}
+                <button onClick={handleExportCSV} className="w-full md:w-auto px-6 py-2 bg-emerald-600 text-white font-bold text-xs uppercase tracking-widest rounded-sm hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 shadow-sm">
+                  <Download className="w-4 h-4" /> Export CSV
+                </button>
+
+              </div>
+
+              {/* 3. LE GRAND TABLEAU */}
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left whitespace-nowrap">
                   <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
-                    <tr>
-                      <th className="px-6 py-4">Collaborateur</th>
-                      <th className="px-6 py-4">Formation Suivie</th>
-                      <th className="px-6 py-4">Statut</th>
-                      <th className="px-6 py-4">Score Final</th>
-                      <th className="px-6 py-4 text-right">Inscrit le</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-sm">
-                    {filteredStudents.length === 0 ? (
                       <tr>
-                        <td colSpan="5" className="px-6 py-12 text-center">
-                          <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                          <p className="text-slate-500 font-bold">Aucun apprenant trouvé.</p>
-                        </td>
+                        <th className="px-6 py-4">Technicien</th>
+                        <th className="px-6 py-4">Secteur</th>
+                        <th className="px-6 py-4">Formation Suivie</th>
+                        <th className="px-6 py-4">Statut</th>
+                        <th className="px-6 py-4">Score</th>
+                        <th className="px-6 py-4 text-right">Actions RH</th>
                       </tr>
-                    ) : (
-                      filteredStudents.map((enrollment, index) => (
-                        <tr key={`${enrollment.user.id}-${enrollment.courseId}-${index}`} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-black text-xs shadow-sm overflow-hidden">
-                              {enrollment.user.avatarUrl ? <img src={enrollment.user.avatarUrl} className="w-full h-full object-cover"/> : enrollment.user.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-bold text-slate-900">{enrollment.user.name}</p>
-                              <p className="text-xs text-slate-500">{enrollment.user.email}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-                              <span className="font-semibold text-slate-700 truncate max-w-[180px] block">{enrollment.courseTitle}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            {enrollment.status === 'IN_PROGRESS' && <span className="px-2.5 py-1 bg-slate-100 text-slate-600 font-bold text-[9px] uppercase tracking-wider rounded-md border border-slate-200 flex items-center gap-1 w-max"><Clock className="w-3 h-3" /> En formation</span>}
-                            {enrollment.status === 'VALIDATED' && <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 font-bold text-[9px] uppercase tracking-wider rounded-md border border-emerald-100 flex items-center gap-1 w-max"><CheckCircle2 className="w-3 h-3" /> Validé</span>}
-                            {enrollment.status === 'FAILED' && <span className="px-2.5 py-1 bg-red-50 text-red-600 font-bold text-[9px] uppercase tracking-wider rounded-md border border-red-100 flex items-center gap-1 w-max"><XCircle className="w-3 h-3" /> Non validé</span>}
-                          </td>
-                          <td className="px-6 py-4">
-                            {enrollment.finalGrade !== null ? (
-                              <p className={`font-black text-sm ${enrollment.status === 'VALIDATED' ? 'text-emerald-600' : 'text-red-600'}`}>
-                                {enrollment.finalGrade} <span className="text-[9px] text-slate-400 font-bold">/ 20</span>
-                              </p>
-                            ) : (
-                              <span className="text-slate-400 font-semibold text-xs">-</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-right text-xs font-semibold text-slate-500">
-                            {new Date(enrollment.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {(!filteredStudents || filteredStudents.length === 0) ? (
+                        <tr>
+                          <td colSpan="6" className="px-6 py-12 text-center">
+                            <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                            <p className="text-slate-500 font-bold">Aucun technicien ne correspond à ces critères.</p>
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        filteredStudents.map((enrollment, index) => {
+                          const retard = isLate(enrollment);
+                          
+                          return (
+                          <tr key={enrollment?.id || index} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4 flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-sm bg-slate-100 text-slate-600 flex items-center justify-center font-black text-xs shadow-sm overflow-hidden border border-slate-200">
+                                {enrollment?.user?.avatarUrl ? <img src={enrollment.user.avatarUrl} className="w-full h-full object-cover"/> : enrollment?.user?.name?.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="font-bold text-slate-900">{enrollment?.user?.name || 'Inconnu'}</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{enrollment?.user?.email}</p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="font-bold text-slate-700 text-xs bg-slate-100 px-2 py-1 rounded-sm border border-slate-200 uppercase">
+                                {enrollment?.user?.sector || 'Non assigné'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                                <span className="font-semibold text-slate-700 truncate max-w-[150px] block">{enrollment?.courseTitle}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              {retard ? (
+                                <span className="px-2.5 py-1 bg-red-100 text-[#EB0A1E] font-black text-[9px] uppercase tracking-wider rounded-sm border border-red-200 flex items-center gap-1 w-max"><AlertTriangle className="w-3 h-3" /> Hors délai</span>
+                              ) : enrollment?.status === 'IN_PROGRESS' ? (
+                                <span className="px-2.5 py-1 bg-blue-50 text-blue-700 font-bold text-[9px] uppercase tracking-wider rounded-sm border border-blue-200 flex items-center gap-1 w-max"><Clock className="w-3 h-3" /> En cours</span>
+                              ) : enrollment?.status === 'VALIDATED' ? (
+                                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 font-bold text-[9px] uppercase tracking-wider rounded-sm border border-emerald-200 flex items-center gap-1 w-max"><CheckCircle2 className="w-3 h-3" /> Certifié</span>
+                              ) : (
+                                <span className="px-2.5 py-1 bg-orange-50 text-orange-700 font-bold text-[9px] uppercase tracking-wider rounded-sm border border-orange-200 flex items-center gap-1 w-max"><XCircle className="w-3 h-3" /> Échec</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              {enrollment?.finalGrade !== null ? (
+                                <p className={`font-black text-sm ${enrollment?.status === 'VALIDATED' ? 'text-emerald-600' : 'text-[#EB0A1E]'}`}>
+                                  {enrollment.finalGrade} <span className="text-[9px] text-slate-400 font-bold">/ 20</span>
+                                </p>
+                              ) : (
+                                <span className="text-slate-300 font-bold">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              {retard && (
+                                <button onClick={() => handleRemindStudent(enrollment?.user?.name)} className="px-3 py-1.5 bg-[#111827] text-white font-bold text-[10px] uppercase tracking-widest rounded-sm hover:bg-[#EB0A1E] transition-colors flex items-center gap-1.5 ml-auto">
+                                  <Bell className="w-3 h-3" /> Relancer
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -662,7 +921,71 @@ export default function InstructorPortal() {
           </div>
         </div>
       )}
+      {/* ========================================================= */}
+      {/* MODALE : GESTION DES SECTEURS DES INSCRITS */}
+      {/* ========================================================= */}
+      {isSectorModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-sm shadow-2xl animate-in zoom-in duration-200 flex flex-col max-h-[90vh] border-t-4 border-[#EB0A1E]">
+            
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Gestion des Secteurs</h3>
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Modifiez l'affectation de vos {uniqueStudents.length} techniciens.</p>
+              </div>
+              <button onClick={() => setIsSectorModalOpen(false)} className="w-8 h-8 bg-white border border-slate-300 rounded-sm text-slate-500 hover:bg-slate-200 hover:text-slate-900 font-bold transition-colors">
+                X
+              </button>
+            </div>
 
+            <div className="p-6 overflow-y-auto custom-scrollbar">
+              <div className="space-y-3">
+                {uniqueStudents.length === 0 ? (
+                  <p className="text-center text-slate-500 italic p-6">Aucun technicien inscrit pour le moment.</p>
+                ) : (
+                  uniqueStudents.map(student => (
+                    <div key={student.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-sm hover:border-[#EB0A1E] transition-colors gap-4">
+                      
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-sm bg-slate-200 border border-slate-300 flex items-center justify-center font-black text-slate-600 overflow-hidden shrink-0">
+                          {student.avatarUrl ? <img src={student.avatarUrl} className="w-full h-full object-cover"/> : student.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900">{student.name}</p>
+                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{student.email}</p>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 w-full sm:w-48">
+                        <select 
+                          value={student.sector || ''} 
+                          onChange={(e) => handleUpdateSector(student.id, e.target.value)}
+                          className="w-full px-3 py-2 text-xs font-bold uppercase tracking-wider bg-white border border-slate-300 rounded-sm outline-none focus:border-[#EB0A1E] focus:ring-1 focus:ring-[#EB0A1E]"
+                        >
+                          <option value="">-- Non Assigné --</option>
+                          <option value="Casablanca">Casablanca</option>
+                          <option value="Tanger">Tanger</option>
+                          <option value="Rabat">Rabat</option>
+                          <option value="Marrakech">Marrakech</option>
+                          <option value="Agadir">Agadir</option>
+                        </select>
+                      </div>
+
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end">
+              <button onClick={() => setIsSectorModalOpen(false)} className="px-6 py-2.5 bg-[#111827] text-white text-xs font-black uppercase tracking-widest rounded-sm hover:bg-[#EB0A1E] transition-colors">
+                Terminer
+              </button>
+            </div>
+            
+          </div>
+        </div>
+      )}
     </div>
   );
 }

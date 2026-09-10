@@ -386,8 +386,14 @@ export default function Catalog() {
                           </div>
 
                           <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
-                              <Clock className="w-3.5 h-3.5 text-slate-400" /> <span>À votre rythme</span>
+                            <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">  
+                              <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-sm border ${course.timeLimitDays ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                {course.timeLimitDays ? (
+                                <><span>⏳</span> Max {course.timeLimitDays} Jours</>
+                              ) : (
+                                <><span>⚡</span> Accès Illimité (Rythme libre)</>
+                              )}
+                            </span>
                             </div>
 
                             {isUnlocked ? (

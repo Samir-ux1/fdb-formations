@@ -23,7 +23,8 @@ exports.register = async (req, res) => {
         name,
         email,
         password: hashedPassword,
-        role: role || 'STUDENT' // Rôle par défaut : STUDENT
+        role: role || 'STUDENT', // Rôle par défaut : STUDENT
+        status: 'PENDING'
       }
     });
 
@@ -48,6 +49,14 @@ exports.login = async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       return res.status(400).json({ message: "Email ou mot de passe incorrect." });
+    }
+
+    // NOUVEAU : 2.5 Vérifier si le compte est approuvé !
+    if (user.status === 'PENDING') {
+      return res.status(403).json({ message: "Votre compte est en attente d'approbation par un administrateur." });
+    }
+    if (user.status === 'REJECTED') {
+      return res.status(403).json({ message: "Votre inscription a été refusée." });
     }
 
     // 3. Générer le Token JWT

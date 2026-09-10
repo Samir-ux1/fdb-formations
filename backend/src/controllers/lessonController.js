@@ -1,8 +1,10 @@
 const prisma = require('../config/prisma');
 
+// --- AJOUTER UNE LEÇON ---
 exports.addLesson = async (req, res) => {
   try {
-    const { title, content, videoUrl, pdfUrl, order } = req.body; // Retour au JSON simple
+    // 1. On s'assure de bien récupérer quizQuestionCount
+    const { title, content, videoUrl, pdfUrl, order, quizQuestionCount } = req.body; 
     const courseId = parseInt(req.params.courseId);
 
     const newLesson = await prisma.lesson.create({
@@ -12,27 +14,42 @@ exports.addLesson = async (req, res) => {
         videoUrl: videoUrl || null,
         pdfUrl: pdfUrl || null, 
         order: parseInt(order) || 1,
+        // 2. Conversion sécurisée (0 par défaut si c'est vide)
+        quizQuestionCount: parseInt(quizQuestionCount) || 0, 
         courseId
       }
     });
     res.status(201).json({ message: "Leçon ajoutée !", lesson: newLesson });
   } catch (error) {
+    console.error("Erreur AddLesson :", error);
     res.status(500).json({ message: "Erreur.", error: error.message });
   }
 };
 
+// --- MODIFIER UNE LEÇON ---
 exports.updateLesson = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
     const lessonId = parseInt(req.params.lessonId);
-    const { title, content, videoUrl, pdfUrl, order } = req.body;
+    
+    // 1. On s'assure de bien récupérer quizQuestionCount ICI AUSSI
+    const { title, content, videoUrl, pdfUrl, order, quizQuestionCount } = req.body;
 
     const updatedLesson = await prisma.lesson.update({
       where: { id: lessonId },
-      data: { title, content, videoUrl: videoUrl || null, pdfUrl: pdfUrl || null, order: parseInt(order) }
+      data: { 
+        title, 
+        content: content || null, 
+        videoUrl: videoUrl || null, 
+        pdfUrl: pdfUrl || null, 
+        order: parseInt(order) || 1,
+        // 2. Mise à jour sécurisée du nombre de questions
+        quizQuestionCount: parseInt(quizQuestionCount) || 0 
+      }
     });
     res.status(200).json({ message: "Leçon modifiée !", lesson: updatedLesson });
   } catch (error) {
+    console.error("Erreur UpdateLesson :", error); // <-- Aichera la vraie erreur dans le terminal VS Code
     res.status(500).json({ message: "Erreur.", error: error.message });
   }
 };

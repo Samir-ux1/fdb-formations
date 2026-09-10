@@ -12,20 +12,17 @@ datasource db {
 model User {
   id        Int      @id @default(autoincrement())
   name      String   
-  
   firstName String?  
   lastName  String?  
   birthDate String?  
   phone     String?  
-  
-  // NOUVEAU : Photo de profil
   avatarUrl String?
-
   email     String   @unique
   password  String
   role      Role     @default(STUDENT)
+  status    String   @default("APPROVED") // APPROVED, PENDING, REJECTED
+  sector    String? 
   createdAt DateTime @default(now())
-
   coursesCreated Course[]     @relation("InstructorCourses")
   enrollments    Enrollment[]
   lessonProgresses LessonProgress[]
@@ -49,6 +46,7 @@ model Course {
   // Le lien de l'image de couverture
   imageUrl    String?  @default("https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800&auto=format&fit=crop") 
   passingScore Float @default(70.0)
+  timeLimitDays Int? @default(30)
   level       String   @default("Débutant") // "Débutant", "Intermédiaire" ou "Avancé"
   
   createdAt   DateTime @default(now())
@@ -77,6 +75,7 @@ model Lesson {
   pdfUrl    String? 
   order     Int      @default(0) // L'ordre de la leçon dans la formation
 
+  quizQuestionCount Int @default(0)
   // Relation avec la formation
   courseId  Int
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -101,6 +100,7 @@ model Enrollment {
 
   quizScore   Float?   // Note du quiz (sur 100)
   examScore   Float?   // Note de l'examen final (sur 100)
+  fieldGrade  Float? 
   finalGrade  Float?   // Note finale calculée (30% quiz + 70% exam)
   isValidated Boolean  @default(false) // Passe à true si la note finale est suffisant
 

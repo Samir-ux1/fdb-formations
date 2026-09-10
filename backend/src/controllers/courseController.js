@@ -3,7 +3,7 @@ const prisma = require('../config/prisma');
 // --- CRÉER UNE FORMATION ---
 exports.createCourse = async (req, res) => {
   try {
-    const { title, description, accessKey, imageUrl, passingScore, categoryId, level } = req.body; // <-- On récupère imageUrl et categoryId
+    const { title, description, accessKey, imageUrl, passingScore, categoryId, level, timeLimitDays } = req.body; // <-- On récupère imageUrl et categoryId
     const instructorId = req.user.userId; 
 
     const newCourse = await prisma.course.create({
@@ -15,7 +15,8 @@ exports.createCourse = async (req, res) => {
         imageUrl: imageUrl || undefined, // <-- On l'envoie à Prisma
         categoryId: categoryId ? parseInt(categoryId) : null,
         level: level || 'Débutant',
-        instructorId
+        instructorId,
+        timeLimitDays: timeLimitDays ? parseInt(timeLimitDays) : 30,
       }
     });
 
@@ -156,14 +157,14 @@ exports.getCourseById = async (req, res) => {
     });
 
     if (!course) {
-      return // On renvoie le cours ET les infos de l'étudiant (pour savoir s'il a déjà validé)
+      return res.status(404).json({ message: "Formation introuvable." });
+    }
+
     res.status(200).json({ 
       ...course, 
       enrollment: isEnrolled 
     });
-    }
-
-    res.status(200).json(course);
+    
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur.", error: error.message });
   }
@@ -221,7 +222,7 @@ exports.updateCourse = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
     // On récupère TOUTES les données, y compris categoryId et passingScore
-    const { title, description, accessKey, imageUrl, passingScore, categoryId, level } = req.body;
+    const { title, description, accessKey, imageUrl, passingScore, categoryId, level, timeLimitDays } = req.body;
 
     // 1. Vérifier que c'est bien l'auteur du cours
     const course = await prisma.course.findUnique({ where: { id: courseId } });
@@ -237,9 +238,10 @@ exports.updateCourse = async (req, res) => {
         description, 
         accessKey, 
         imageUrl,
-        passingScore: passingScore ? parseInt(passingScore) : 70, // Mise à jour du score
+        passingScore: passingScore ? parseInt(passingScore) : 10, // Mise à jour du score
         categoryId: categoryId ? parseInt(categoryId) : null,      // Mise à jour de la branche
-        level: level || 'Débutant' // Mise à jour du niveau
+        level: level || 'Débutant', // Mise à jour du niveau
+        timeLimitDays: timeLimitDays ? parseInt(timeLimitDays) : null // Mise à jour de la limite de temps
       }
     });
 
@@ -351,6 +353,7 @@ exports.getCourseStudents = async (req, res) => {
         user: { 
           select: { 
             id: true, name: true, email: true, avatarUrl: true,
+            sector: true,
             // On récupère le score de chaque leçon terminée par cet étudiant pour CE cours
             lessonProgresses: {
               where: { lesson: { courseId: courseId } },
@@ -374,11 +377,21 @@ exports.submitGrades = async (req, res) => {
     const userId = req.user.userId;
     const { quizScore, examScore } = req.body; // Les notes sont maintenant sur 20
 
-    // Calcul de la note finale sur 20 (30% Quiz + 70% Examen)
-    const finalGrade = parseFloat(((quizScore * 0.3) + (examScore * 0.7)).toFixed(2)); // toFixed(2) garde 2 chiffres après la virgule
+    // On récupère d'abord l'inscription pour voir s'il y a une note de terrain
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId, courseId } }
+    });
 
-    // L'étudiant valide s'il a au moins 10/20
-    const isValidated = finalGrade >= 10;
+    let finalGrade = 0;
+    if (enrollment.fieldGrade !== null) {
+      // S'il y a une note de terrain : Quiz(20%) + Exam(50%) + Terrain(30%)
+      finalGrade = parseFloat(((quizScore * 0.2) + (examScore * 0.5) + (enrollment.fieldGrade * 0.3)).toFixed(2));
+    } else {
+      // Sinon, on garde l'ancien système : Quiz(30%) + Exam(70%)
+      finalGrade = parseFloat(((quizScore * 0.3) + (examScore * 0.7)).toFixed(2));
+    }
+
+    const isValidated = finalGrade >= 10; // Moyenne sur 20
 
     const updatedEnrollment = await prisma.enrollment.update({
       where: { userId_courseId: { userId, courseId } },
@@ -491,5 +504,64 @@ exports.overrideStudentStatus = async (req, res) => {
     res.status(200).json({ message: "Le statut de l'étudiant a été forcé manuellement." });
   } catch (error) {
     res.status(500).json({ message: "Erreur lors de la modification du statut.", error: error.message });
+  }
+};
+
+// --- METTRE À JOUR LA NOTE DE TERRAIN (Recalcule la moyenne automatiquement) ---
+exports.updateFieldGrade = async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId);
+    const studentId = parseInt(req.params.studentId);
+    const fieldGrade = parseFloat(req.body.fieldGrade);
+
+    const enrollment = await prisma.enrollment.findUnique({ where: { userId_courseId: { userId: studentId, courseId } } });
+    
+    let finalGrade = enrollment.finalGrade;
+    let isValidated = enrollment.isValidated;
+
+    // Si l'étudiant a DÉJÀ passé l'examen, on RECALCULE sa note finale !
+    if (enrollment.quizScore !== null && enrollment.examScore !== null) {
+      finalGrade = parseFloat(((enrollment.quizScore * 0.2) + (enrollment.examScore * 0.5) + (fieldGrade * 0.3)).toFixed(2));
+      isValidated = finalGrade >= 10;
+    }
+
+    await prisma.enrollment.update({
+      where: { userId_courseId: { userId: studentId, courseId } },
+      data: { fieldGrade, finalGrade, isValidated, status: isValidated ? 'VALIDATED' : enrollment.status }
+    });
+    
+    res.status(200).json({ message: "Note de terrain enregistrée !" });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur.", error: error.message });
+  }
+};
+
+// --- RÉCUPÉRER TOUS LES ÉTUDIANTS (VUE GLOBALE RH) ---
+exports.getAllInstructorStudents = async (req, res) => {
+  try {
+    const instructorId = req.user.userId;
+
+    const enrollments = await prisma.enrollment.findMany({
+      where: { 
+        course: { instructorId: instructorId } 
+      },
+      include: {
+        // NOUVEAU : On récupère le SECTEUR du technicien
+        user: { select: { id: true, name: true, email: true, avatarUrl: true, sector: true } },
+        // NOUVEAU : On récupère le TEMPS LIMITE du cours
+        course: { select: { title: true, timeLimitDays: true } } 
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const formattedEnrollments = enrollments.map(e => ({
+      ...e,
+      courseTitle: e.course.title,
+      timeLimitDays: e.course.timeLimitDays
+    }));
+
+    res.status(200).json(formattedEnrollments);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur.", error: error.message });
   }
 };

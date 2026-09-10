@@ -19,7 +19,7 @@ export default function CourseManager() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [activeTab, setActiveTab] = useState('CONTENT'); // 'CONTENT', 'EXAM', 'STUDENTS'
 
-  const [newLesson, setNewLesson] = useState({ title: '', content: '', videoUrl: '', pdfUrl: '', order: 1 });
+  const [newLesson, setNewLesson] = useState({ title: '', content: '', videoUrl: '', pdfUrl: '', order: 1, quizQuestionCount: 0 });
   const [lessonType, setLessonType] = useState('VIDEO'); 
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingLessonId, setEditingLessonId] = useState(null);
@@ -176,6 +176,7 @@ export default function CourseManager() {
       title: newLesson.title,
       content: newLesson.content,
       order: newLesson.order,
+      quizQuestionCount: parseInt(newLesson.quizQuestionCount) || 0, 
       videoUrl: lessonType === 'VIDEO' ? newLesson.videoUrl : null,
       pdfUrl: lessonType === 'PDF' ? newLesson.pdfUrl : null,
     };
@@ -204,7 +205,7 @@ export default function CourseManager() {
   const handleEditLesson = (lesson) => {
     setEditingLessonId(lesson.id);
     setLessonType(lesson.pdfUrl ? 'PDF' : 'VIDEO');
-    setNewLesson({ title: lesson.title, content: lesson.content || '', videoUrl: lesson.videoUrl || '', pdfUrl: lesson.pdfUrl || '', order: lesson.order });
+    setNewLesson({ title: lesson.title, content: lesson.content || '', videoUrl: lesson.videoUrl || '', pdfUrl: lesson.pdfUrl || '', order: lesson.order, quizQuestionCount: lesson.quizQuestionCount || 0 });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -342,11 +343,16 @@ export default function CourseManager() {
         {activeTab === 'CONTENT' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             
-            {/* Formulaire Leçon */}
-            <div className="lg:col-span-5 bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-200 h-fit sticky top-48">
+            {/* --- COLONNE GAUCHE : FORMULAIRE LEÇON (NOUVEAU DESIGN) --- */}
+            <div className="lg:col-span-5 bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-200 h-fit sticky top-8">
+              
               <div className="flex items-center gap-3 mb-6">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${editingLessonId ? 'bg-amber-100 text-amber-600' : 'bg-red-50 text-[#EB0A1E]'}`}>
-                  {editingLessonId ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                  {editingLessonId ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                  )}
                 </div>
                 <h2 className="text-xl font-black text-slate-900">
                   {editingLessonId ? "Modifier le chapitre" : "Nouveau Chapitre"}
@@ -364,11 +370,13 @@ export default function CourseManager() {
                   <div className="flex gap-4">
                     <label className={`flex-1 flex items-center justify-center gap-2 cursor-pointer text-sm font-bold p-3 rounded-xl border-2 transition-all ${lessonType === 'VIDEO' ? 'border-[#EB0A1E] bg-red-50 text-[#EB0A1E]' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                       <input type="radio" checked={lessonType === 'VIDEO'} onChange={() => { setLessonType('VIDEO'); setNewLesson({...newLesson, pdfUrl: ''}) }} className="hidden" />
-                      <PlaySquare className="w-4 h-4" /> Vidéo
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      Vidéo
                     </label>
                     <label className={`flex-1 flex items-center justify-center gap-2 cursor-pointer text-sm font-bold p-3 rounded-xl border-2 transition-all ${lessonType === 'PDF' ? 'border-[#EB0A1E] bg-red-50 text-[#EB0A1E]' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                       <input type="radio" checked={lessonType === 'PDF'} onChange={() => { setLessonType('PDF'); setNewLesson({...newLesson, videoUrl: ''}) }} className="hidden" />
-                      <FileText className="w-4 h-4" /> Doc PDF
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      Doc PDF
                     </label>
                   </div>
                 </div>
@@ -380,30 +388,34 @@ export default function CourseManager() {
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">Lien de partage Drive / PDF</label>
+                    <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">Lien de partage Drive</label>
                     <input type="url" value={newLesson.pdfUrl || ''} onChange={e => setNewLesson({...newLesson, pdfUrl: e.target.value})} placeholder="https://drive.google.com/..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm transition-all" required={lessonType === 'PDF'} />
                   </div>
                 )}
                 
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">Description (Optionnelle)</label>
-                  <textarea value={newLesson.content} onChange={e => setNewLesson({...newLesson, content: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none h-24 resize-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm transition-all" />
+                  <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">Description</label>
+                  <textarea value={newLesson.content || ''} onChange={e => setNewLesson({...newLesson, content: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm transition-all h-24" placeholder="Résumé du chapitre..." />
                 </div>
-                
+
                 <div className="flex gap-4">
-                  <div className="w-1/3">
+                  <div className="w-1/4">
                     <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">Ordre</label>
-                    <input type="number" min="1" value={newLesson.order} onChange={e => setNewLesson({...newLesson, order: parseInt(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-center font-bold focus:border-slate-800 focus:ring-2 focus:ring-slate-200 transition-all text-sm" required />
+                    <input type="number" min="1" value={newLesson.order} onChange={e => setNewLesson({...newLesson, order: parseInt(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 text-sm transition-all" required />
                   </div>
-                  <div className="w-2/3 flex items-end">
-                    <button type="submit" disabled={isProcessing} className={`w-full py-3.5 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${editingLessonId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-[#111827] hover:bg-[#EB0A1E]'}`}>
-                      <CheckCircle2 className="w-4 h-4" />
-                      {editingLessonId ? "Mettre à jour" : "Sauvegarder"}
+                  <div className="w-1/4" title="0 = Toutes les questions">
+                    <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5 line-clamp-1">Nb. QCM</label>
+                    <input type="number" min="0" value={newLesson.quizQuestionCount || 0} onChange={e => setNewLesson({...newLesson, quizQuestionCount: parseInt(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 text-sm transition-all" required />
+                  </div>
+                  <div className="w-2/4 flex items-end">
+                    <button type="submit" disabled={isProcessing} className={`w-full py-3 text-white font-bold rounded-xl transition-all shadow-md ${editingLessonId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-[#EB0A1E] hover:bg-red-700'}`}>
+                      {editingLessonId ? "Mettre à jour" : "Enregistrer"}
                     </button>
                   </div>
                 </div>
+
                 {editingLessonId && (
-                  <button type="button" onClick={() => { setEditingLessonId(null); setNewLesson({ title: '', content: '', videoUrl: '', pdfUrl: '', order: course.lessons.length + 1 }); }} className="w-full py-3 bg-slate-100 text-slate-600 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 transition-colors mt-2">
+                  <button type="button" onClick={() => { setEditingLessonId(null); setNewLesson({ title: '', content: '', videoUrl: '', pdfUrl: '', order: course.lessons.length + 1, quizQuestionCount: 0 }); }} className="w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 mt-2 transition-colors text-sm uppercase tracking-wider">
                     Annuler la modification
                   </button>
                 )}
@@ -590,16 +602,42 @@ export default function CourseManager() {
                             <span className="text-slate-400 font-semibold text-xs">-</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          {student.status === 'FAILED' && (
+                        {/* CHAMP NOTE DE TERRAIN (STOP PROPAGATION) */}
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] uppercase font-bold text-slate-500">Note Terrain (/20)</span>
+                          <div className="flex gap-2">
+                            <input 
+                              type="number" min="0" max="20" step="0.5"
+                              defaultValue={student.fieldGrade || ''}
+                              id={`field-${student.user.id}`}
+                              className="w-16 px-2 py-1 border border-slate-300 rounded-sm text-sm outline-none focus:border-red-600"
+                            />
                             <button 
-                              onClick={(e) => { e.stopPropagation(); handleResetStudent(student.user.id); }}
-                              className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 font-bold text-xs rounded-lg transition-colors flex items-center gap-1.5 ml-auto shadow-sm"
+                              onClick={async (e) => {
+                                e.stopPropagation(); // Bloque l'ouverture de la modale étudiant !
+                                const val = document.getElementById(`field-${student.user.id}`).value;
+                                if(val === '') return;
+                                try {
+                                  await axios.put(`http://localhost:5000/api/courses/${courseId}/students/${student.user.id}/field-grade`, { fieldGrade: val }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+                                  alert("Note de terrain enregistrée !");
+                                  fetchStudents();
+                                } catch(err) { alert("Erreur."); }
+                              }}
+                              className="bg-slate-900 text-white px-2 py-1 rounded-sm text-xs font-bold hover:bg-red-600"
                             >
-                              <RotateCcw className="w-3.5 h-3.5" /> Reset (2ème chance)
+                              OK
                             </button>
-                          )}
-                        </td>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {student.status === 'FAILED' && (
+                          <button onClick={() => handleResetStudent(student.user.id)} className="px-4 py-2 bg-orange-100 text-orange-700 hover:bg-orange-200 font-bold text-xs rounded-sm transition-colors uppercase">
+                            ↻ Seconde chance
+                          </button>
+                        )}
+                      </td>
                       </tr>
                     ))
                   )}
@@ -704,6 +742,16 @@ export default function CourseManager() {
               <div>
                 <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5"><Tag className="w-3.5 h-3.5"/> Titre</label>
                 <input type="text" value={editCourseData.title} onChange={e => setEditCourseData({...editCourseData, title: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm font-semibold transition-all" required />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Durée limite en jours (Optionnel)</label>
+                <input 
+                  type="number" min="1" 
+                  value={editCourseData.timeLimitDays || ''} 
+                  onChange={e => setEditCourseData({...editCourseData, timeLimitDays: parseInt(e.target.value) || null})} 
+                  placeholder="Laissez vide pour durée illimitée"
+                  className="w-full px-4 py-2 border rounded-sm outline-none focus:ring-2 focus:ring-red-600" 
+                />
               </div>
               {/* LA NOUVELLE GRILLE MODIFICATION : Filière + Niveau */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

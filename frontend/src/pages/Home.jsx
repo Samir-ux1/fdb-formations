@@ -301,9 +301,14 @@ export default function Home() {
                 </div>
 
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
-                    <Clock className="w-4 h-4 text-slate-400" />
-                    <span>À votre rythme</span>
+                  <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">            
+                    <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-sm border ${course.timeLimitDays ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                      {course.timeLimitDays ? (
+                        <><span>⏳</span> Max {course.timeLimitDays} Jours</>
+                      ) : (
+                        <><span>⚡</span> Accès Illimité (Rythme libre)</>
+                      )}
+                    </span>
                   </div>
 
                   <button
@@ -348,7 +353,58 @@ export default function Home() {
         </div>
       </section>
 
-      
+      {/* ========================================================= */}
+      {/* 2. NOUVELLE SECTION : COMMENT ÇA MARCHE (GUIDE ÉTAPE) */}
+      {/* ========================================================= */}
+      <section className="px-4 md:px-8 max-w-7xl mx-auto py-12">
+        <div className="text-center max-w-2xl mx-auto mb-12">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#EB0A1E] bg-red-50 px-3 py-1 rounded-full border border-red-100">
+            Guide d'utilisation
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-4 tracking-tight">
+            Votre parcours de formation en 3 étapes
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+          {/* Ligne de connexion (Uniquement sur PC) */}
+          <div className="hidden md:block absolute top-[28px] left-[16%] right-[16%] h-[2px] bg-slate-200 z-0"></div>
+
+          {/* Etape 1 */}
+          <div className="relative z-10 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm text-center flex flex-col items-center hover:border-[#EB0A1E] hover:shadow-md transition-all">
+            <div className="w-14 h-14 bg-[#111827] text-white rounded-full flex items-center justify-center font-black text-2xl mb-6 shadow-lg border-4 border-white">
+              1
+            </div>
+            <h3 className="font-black text-lg text-slate-900 mb-3">Obtenez votre code</h3>
+            <p className="text-sm text-slate-500 leading-relaxed font-medium">
+              Votre superviseur ou formateur vous remet une <strong className="text-slate-800">clé secrète</strong> correspondant à la formation technique que vous devez suivre.
+            </p>
+          </div>
+
+          {/* Etape 2 */}
+          <div className="relative z-10 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm text-center flex flex-col items-center hover:border-[#EB0A1E] hover:shadow-md transition-all">
+            <div className="w-14 h-14 bg-[#EB0A1E] text-white rounded-full flex items-center justify-center font-black text-2xl mb-6 shadow-lg border-4 border-white">
+              2
+            </div>
+            <h3 className="font-black text-lg text-slate-900 mb-3">Débloquez & Apprenez</h3>
+            <p className="text-sm text-slate-500 leading-relaxed font-medium">
+              Cliquez sur "Activer une clé" et entrez votre code. Visionnez les vidéos et validez les quiz d'étape à votre propre rythme.
+            </p>
+          </div>
+
+          {/* Etape 3 */}
+          <div className="relative z-10 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm text-center flex flex-col items-center hover:border-[#EB0A1E] hover:shadow-md transition-all">
+            <div className="w-14 h-14 bg-[#111827] text-white rounded-full flex items-center justify-center font-black text-2xl mb-6 shadow-lg border-4 border-white">
+              3
+            </div>
+            <h3 className="font-black text-lg text-slate-900 mb-3">Obtenez la certification</h3>
+            <p className="text-sm text-slate-500 leading-relaxed font-medium">
+              À la fin du module, passez l'évaluation finale. Si vous obtenez la moyenne, vous validez officiellement vos nouvelles compétences !
+            </p>
+          </div>
+        </div>
+      </section>
+
 
     </div>
   );
