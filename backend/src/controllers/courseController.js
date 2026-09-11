@@ -524,6 +524,7 @@ exports.updateFieldGrade = async (req, res) => {
       finalGrade = parseFloat(((enrollment.quizScore * 0.2) + (enrollment.examScore * 0.5) + (fieldGrade * 0.3)).toFixed(2));
       isValidated = finalGrade >= 10;
     }
+    
 
     await prisma.enrollment.update({
       where: { userId_courseId: { userId: studentId, courseId } },
