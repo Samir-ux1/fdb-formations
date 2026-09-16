@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const userRoutes = require('./src/routes/userRoutes');
 require('dotenv').config();
+const startCronJobs = require('./src/cron/reminderJob');
 
 // Initialisation de l'application
 const app = express();
@@ -44,6 +45,9 @@ app.use('/api/users', userRoutes);
 app.get('/', (req, res) => {
   res.json({ message: "🚀 Bienvenue sur l'API de la plateforme de formation !" });
 });
+
+// Démarre le robot des emails automatiques
+startCronJobs();
 
 // Démarrage du serveur
 const PORT = process.env.PORT || 5000;

@@ -8,13 +8,17 @@ import CoursePlayer from './pages/CoursePlayer';
 import InstructorPortal from './pages/InstructorPortal';
 import CourseManager from './pages/CourseManager';
 import Account from './pages/Account';
+import VerifyEmail from './pages/VerifyEmail';
+import ScrollToTop from './components/ScrollToTop';
 
 function App() {
   return (
     <BrowserRouter>
+    <ScrollToTop />
       <Routes>
         {/* ROUTES SANS NAVBAR (Hors du Layout) */}
         <Route path="/login" element={<Login />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
 
         {/* ROUTES AVEC NAVBAR GLOBALE (Dans le Layout) */}
         <Route element={<Layout />}>

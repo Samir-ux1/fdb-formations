@@ -49,7 +49,7 @@ export default function Login() {
           role: 'STUDENT'
         });
         
-        alert('Inscription réussie ! Vous pouvez maintenant vous connecter.');
+        toast.success("Inscription réussie ! Veuillez vérifier votre boîte mail pour valider votre compte.", { duration: 5000 });
         setIsLogin(true); 
       }
     } catch (err) {

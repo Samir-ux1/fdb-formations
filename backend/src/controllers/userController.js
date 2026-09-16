@@ -72,11 +72,14 @@ exports.updatePassword = async (req, res) => {
   }
 };
 
-// --- RÉCUPÉRER LES UTILISATEURS EN ATTENTE (Pour les notifications) ---
+// --- RÉCUPÉRER LES UTILISATEURS EN ATTENTE (Uniquement ceux qui ont vérifié leur email) ---
 exports.getPendingUsers = async (req, res) => {
   try {
     const pendingUsers = await prisma.user.findMany({
-      where: { status: 'PENDING' },
+      where: { 
+        status: 'PENDING',
+        isEmailVerified: true // <-- LA SÉCURITÉ EST LÀ !
+      },
       select: { id: true, name: true, email: true, createdAt: true }
     });
     res.status(200).json(pendingUsers);

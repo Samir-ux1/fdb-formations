@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import YouTube from 'react-youtube';
 import { useAuthStore } from '../store/authStore';
 import {
@@ -35,6 +36,7 @@ export default function CoursePlayer() {
 
   // État de la vidéo
   const [isVideoFinished, setIsVideoFinished] = useState(false);
+  const [activeMediaTab, setActiveMediaTab] = useState('VIDEO');
   
   // États Temps imparti
   const [isExpired, setIsExpired] = useState(false);
@@ -94,7 +96,7 @@ export default function CoursePlayer() {
       }
     } catch (err) {
       if (err.response?.status === 403) {
-        alert("Vous devez débloquer ce cours pour le regarder !");
+        toast.success("Vous devez débloquer ce cours pour le regarder !");
         navigate('/catalog');
       }
     } finally {
@@ -142,6 +144,13 @@ export default function CoursePlayer() {
   // Chargement de la leçon
   useEffect(() => {
     if (!currentLesson) return;
+    
+    if (currentLesson.videoUrl) {
+    setActiveMediaTab('VIDEO');
+  } else if (currentLesson.pdfUrl) {
+    setActiveMediaTab('PDF');
+  }
+
     const progress = currentLesson.progresses?.length > 0 ? currentLesson.progresses[0] : null;
 
     if (progress && currentLesson.questions && currentLesson.questions.length > 0) {
@@ -236,7 +245,7 @@ export default function CoursePlayer() {
       setValidationResult(response.data.results);
       setShowFinalExam(false);
     } catch (error) {
-      alert("Erreur serveur : " + (error.response?.data?.message || error.message));
+      toast.success("Erreur serveur : " + (error.response?.data?.message || error.message));
     }
   };
 
@@ -355,24 +364,83 @@ export default function CoursePlayer() {
             ) : (
             /* --- LECTEUR ET CHAPITRE --- */
             <>
-              {currentLesson?.pdfUrl ? (
-                <div className="w-full h-[500px] md:h-[70vh] bg-slate-100 rounded-2xl overflow-hidden shadow-sm border border-slate-200 relative">
-                  <div className="absolute top-0 left-0 w-full h-1 bg-[#EB0A1E] z-10"></div>
-                  <embed src={getPdfDisplayUrl(currentLesson.pdfUrl.trim())} type="application/pdf" className="w-full h-full" />
-                </div>
-              ) : (
-                <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-sm border border-slate-200">
-                  {currentLesson?.videoUrl ? (
-                    getYouTubeId(currentLesson.videoUrl.trim()) ? (
-                      <YouTube videoId={getYouTubeId(currentLesson.videoUrl.trim())} opts={{ width: '100%', height: '100%', playerVars: { rel: 0, autoplay: 1 } }} onEnd={handleVideoEnd} className="absolute top-0 left-0 w-full h-full [&>iframe]:w-full [&>iframe]:h-full" />
-                    ) : (
-                      <video className="absolute top-0 left-0 w-full h-full" controls src={currentLesson.videoUrl.trim()} onEnded={handleVideoEnd}></video>
-                    )
-                  ) : (
-                    <div className="flex flex-col h-full items-center justify-center text-slate-500 bg-slate-100"><PlaySquare className="w-12 h-12 mb-3 text-slate-300" /><p className="font-bold text-sm">Aucun média.</p></div>
-                  )}
-                </div>
-              )}
+              {/* --- SÉLECTEUR D'ONGLETS VIDÉO / PDF (si la leçon a les deux) --- */}
+{currentLesson?.videoUrl && currentLesson?.pdfUrl && (
+  <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-sm mb-4">
+    <div className="flex gap-2">
+      <button
+        type="button"
+        onClick={() => setActiveMediaTab('VIDEO')}
+        className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+          activeMediaTab === 'VIDEO'
+            ? 'bg-[#111827] text-white shadow-sm'
+            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+        }`}
+      >
+        <PlaySquare className="w-4 h-4 text-red-500" /> Vidéo du cours
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setActiveMediaTab('PDF')}
+        className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+          activeMediaTab === 'PDF'
+            ? 'bg-[#111827] text-white shadow-sm'
+            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+        }`}
+      >
+        <FileText className="w-4 h-4 text-purple-500" /> Support PDF
+      </button>
+    </div>
+
+    {/* Bouton d'ouverture plein écran du PDF */}
+    <a
+      href={currentLesson.pdfUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors"
+    >
+      Ouvrir le PDF dans un nouvel onglet ↗
+    </a>
+  </div>
+)}
+
+{/* --- AFFICHAGE DU LECTEUR EN FONCTION DE L'ONGLET ACTIF --- */}
+{(activeMediaTab === 'PDF' && currentLesson?.pdfUrl) || (!currentLesson?.videoUrl && currentLesson?.pdfUrl) ? (
+  <div className="w-full h-[550px] md:h-[75vh] bg-slate-100 rounded-2xl overflow-hidden shadow-sm border border-slate-200 relative mb-6">
+    <div className="absolute top-0 left-0 w-full h-1 bg-[#EB0A1E] z-10"></div>
+    <embed
+      src={getPdfDisplayUrl(currentLesson.pdfUrl.trim())}
+      type="application/pdf"
+      className="w-full h-full"
+    />
+  </div>
+) : (
+  <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-sm border border-slate-200 mb-6">
+    {currentLesson?.videoUrl ? (
+      getYouTubeId(currentLesson.videoUrl.trim()) ? (
+        <YouTube
+          videoId={getYouTubeId(currentLesson.videoUrl.trim())}
+          opts={{ width: '100%', height: '100%', playerVars: { rel: 0, autoplay: 1 } }}
+          onEnd={handleVideoEnd}
+          className="absolute top-0 left-0 w-full h-full [&>iframe]:w-full [&>iframe]:h-full"
+        />
+      ) : (
+        <video
+          className="absolute top-0 left-0 w-full h-full"
+          controls
+          src={currentLesson.videoUrl.trim()}
+          onEnded={handleVideoEnd}
+        />
+      )
+    ) : (
+      <div className="flex flex-col h-full items-center justify-center text-slate-500 bg-slate-100">
+        <PlaySquare className="w-12 h-12 mb-3 text-slate-300" />
+        <p className="font-bold text-sm">Aucun média vidéo.</p>
+      </div>
+    )}
+  </div>
+)}
 
               <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 relative">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 mb-6">
@@ -565,8 +633,20 @@ export default function CoursePlayer() {
                       <h4 className={`font-semibold text-sm line-clamp-2 leading-snug ${isActive ? 'text-[#EB0A1E] font-black' : 'text-slate-700'}`}>
                         {lesson.title}
                       </h4>
+                      <div className="flex items-center gap-1.5 mt-1">
+                      {lesson.videoUrl && (
+                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <PlaySquare className="w-2.5 h-2.5" /> Vidéo
+                        </span>
+                      )}
+                      {lesson.pdfUrl && (
+                        <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <FileText className="w-2.5 h-2.5" /> PDF
+                        </span>
+                      )}
                     </div>
-                  </button>
+                  </div>
+                </button>
                 );
               })
             )}

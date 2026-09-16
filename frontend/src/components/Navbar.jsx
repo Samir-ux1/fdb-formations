@@ -1,5 +1,6 @@
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { Toaster } from 'react-hot-toast';
 import RedeemModal from '../components/RedeemModal';
 // Si la page est blanche, c'est probablement cette ligne qui pose problème !
 import { 
@@ -229,10 +230,31 @@ export default function Layout() {
         </div>
       </footer>
 
+      
   
       {/* NOUVEAU : AFFICHE LA MODALE SI L'URL CONTIENT ?modal=redeem */}
       {location.search.includes('modal=redeem') && <RedeemModal />}
 
-    </div>
+    {/* ... (Ton footer Toyota est ici) ... */}
+
+      {/* NOUVEAU : LE SYSTÈME DE NOTIFICATIONS GLOBAL */}
+      <Toaster 
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: '#111827', // Fond noir Toyota
+            color: '#fff',
+            fontWeight: 'bold',
+            borderRadius: '4px', // Coins carrés
+          },
+          success: {
+            iconTheme: { primary: '#10B981', secondary: '#fff' },
+          },
+          error: {
+            iconTheme: { primary: '#E3000F', secondary: '#fff' }, // Rouge Toyota
+          },
+        }}
+      />
+    </div> // <-- La toute dernière balise div fermante du Layout
   );
 }

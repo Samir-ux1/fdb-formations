@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import { 
   ArrowLeft, 
   BookOpen, 
@@ -20,8 +21,8 @@ import {
   Image as ImageIcon,
   AlignLeft,
   Tag,
+  AlertTriangle,
   Download,
-  AlertTriangle, 
   Bell, 
   Filter
 } from 'lucide-react';
@@ -61,7 +62,7 @@ export default function InstructorPortal() {
     const userData = JSON.parse(localStorage.getItem('user'));
 
     if (!token || userData?.role !== 'INSTRUCTOR') {
-      alert("Accès refusé. Réservé aux instructeurs.");
+      toast.success("Accès refusé. Réservé aux instructeurs.");
       navigate('/dashboard');
       return;
     }
@@ -118,7 +119,7 @@ export default function InstructorPortal() {
       setSelectedSector('');
       fetchInstructorCourses(token); // Met à jour le compteur de notifications instantanément !
     } catch (error) {
-      alert("Erreur lors de la validation.");
+      toast.success("Erreur lors de la validation.");
     }
   };
 
@@ -131,12 +132,12 @@ export default function InstructorPortal() {
         await axios.put(`http://localhost:5000/api/categories/${editingCategory.id}`, categoryData, { 
           headers: { Authorization: `Bearer ${token}` } 
         });
-        alert("Filière modifiée avec succès !");
+        toast.success("Filière modifiée avec succès !");
       } else {
         await axios.post('http://localhost:5000/api/categories', categoryData, { 
           headers: { Authorization: `Bearer ${token}` } 
         });
-        alert("Filière créée avec succès !");
+        toast.success("Filière créée avec succès !");
       }
       
       setIsCategoryModalOpen(false);
@@ -144,7 +145,7 @@ export default function InstructorPortal() {
       setCategoryData({ name: '', imageUrl: '' });
       fetchInstructorCourses(token); 
     } catch (error) {
-      alert("Erreur (Cette filière existe peut-être déjà).");
+      toast.success("Erreur (Cette filière existe peut-être déjà).");
     }
   };
 
@@ -158,7 +159,7 @@ export default function InstructorPortal() {
       });
       fetchInstructorCourses(token); 
     } catch (error) {
-      alert("Erreur lors de la suppression de la filière.");
+      toast.success("Erreur lors de la suppression de la filière.");
     }
   };
 
@@ -172,60 +173,69 @@ export default function InstructorPortal() {
       setIsCreating(false);
       setNewCourse({ title: '', description: '', accessKey: '', imageUrl: '', categoryId: '', level: 'Débutant' });
       fetchInstructorCourses(token);
-      alert("Formation créée avec succès !");
+      toast.success("Formation créée avec succès !");
     } catch (error) {
-      alert("Erreur lors de la création.");
+      toast.success("Erreur lors de la création.");
     }
   };
 
-  // --- LOGIQUE RH (FILTRES ET KPI) ---
+  // ========================================================
+  // --- LOGIQUE RH (FILTRES ET KPI) SÉCURISÉE ---
+  // ========================================================
 
   // 1. Fonction pour savoir si un technicien est en retard
   const isLate = (enrollment) => {
-    if (enrollment.status !== 'IN_PROGRESS' || !enrollment.timeLimitDays) return false;
+    if (enrollment?.status !== 'IN_PROGRESS' || !enrollment?.timeLimitDays) return false;
     const deadline = new Date(new Date(enrollment.createdAt).getTime() + enrollment.timeLimitDays * 24 * 60 * 60 * 1000);
     return new Date() > deadline;
   };
 
-  // 2. Application des filtres
+  // 2. Application des filtres (Sécurisé avec ?.)
   const filteredStudents = allStudents.filter(enrollment => {
-    const matchSearch = enrollment.user.name.toLowerCase().includes(searchTerm.toLowerCase()) || enrollment.courseTitle.toLowerCase().includes(searchTerm.toLowerCase());
+    const userName = enrollment?.user?.name?.toLowerCase() || '';
+    const courseTitle = enrollment?.courseTitle?.toLowerCase() || '';
+    const searchLower = searchTerm.toLowerCase();
+    
+    const matchSearch = userName.includes(searchLower) || courseTitle.includes(searchLower);
     
     let matchStatus = true;
     if (statusFilter === 'LATE') matchStatus = isLate(enrollment);
-    else if (statusFilter !== 'ALL') matchStatus = enrollment.status === statusFilter;
+    else if (statusFilter !== 'ALL') matchStatus = enrollment?.status === statusFilter;
 
-    const matchSector = sectorFilter === 'ALL' || enrollment.user.sector === sectorFilter;
+    const matchSector = sectorFilter === 'ALL' || enrollment?.user?.sector === sectorFilter;
 
     return matchSearch && matchStatus && matchSector;
   });
 
-  // 3. Calcul des KPI (Chiffres clés)
+  // 3. Calcul des KPI pour les graphiques (Nouveau Design)
   const kpiTotal = allStudents.length;
-  const kpiValidated = allStudents.filter(e => e.status === 'VALIDATED').length;
-  const kpiCompliance = kpiTotal > 0 ? Math.round((kpiValidated / kpiTotal) * 100) : 0;
-  const kpiLate = allStudents.filter(e => isLate(e)).length;
+  const countValidated = allStudents.filter(e => e?.status === 'VALIDATED').length;
+  const countFailed = allStudents.filter(e => e?.status === 'FAILED').length;
+  const countLate = allStudents.filter(e => isLate(e)).length;
+  const countInProgress = allStudents.filter(e => e?.status === 'IN_PROGRESS' && !isLate(e)).length;
+
+  const pctValidated = kpiTotal > 0 ? Math.round((countValidated / kpiTotal) * 100) : 0;
+  const pctFailedLate = kpiTotal > 0 ? Math.round(((countFailed + countLate) / kpiTotal) * 100) : 0;
+  const pctInProgress = kpiTotal > 0 ? Math.round((countInProgress / kpiTotal) * 100) : 0;
+  const kpiCompliance = pctValidated; // Pour la compatibilité
 
   // 4. Fonction d'Export Excel (CSV)
   const handleExportCSV = () => {
-    // En-têtes du fichier
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += "Nom,Email,Secteur,Formation,Statut,Note,Date_Inscription\n";
 
-    // Lignes de données
     filteredStudents.forEach(e => {
-      const nom = e.user.name;
-      const email = e.user.email;
-      const secteur = e.user.sector || "Non assigné";
-      const cours = e.courseTitle;
-      const statut = isLate(e) ? "EN RETARD" : e.status;
-      const note = e.finalGrade ? `${e.finalGrade}/20` : "N/A";
-      const date = new Date(e.createdAt).toLocaleDateString('fr-FR');
+      const nom = e?.user?.name || "Inconnu";
+      const email = e?.user?.email || "N/A";
+      const secteur = e?.user?.sector || "Non assigné";
+      const cours = e?.courseTitle || "Inconnu";
+      const statut = isLate(e) ? "EN RETARD" : (e?.status || "N/A");
+      const note = e?.finalGrade !== null && e?.finalGrade !== undefined ? `${e.finalGrade}/20` : "N/A";
+      const date = e?.createdAt ? new Date(e.createdAt).toLocaleDateString('fr-FR') : "N/A";
       
       csvContent += `"${nom}","${email}","${secteur}","${cours}","${statut}","${note}","${date}"\n`;
     });
 
-    // Création et téléchargement du fichier
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -237,35 +247,36 @@ export default function InstructorPortal() {
 
   // 5. Fonction Relancer
   const handleRemindStudent = (name) => {
-    alert(`Un email de relance automatique a été simulé pour ${name} ! 📧`);
+    toast.success(`Un email de relance automatique a été simulé pour ${name} ! 📧`);
   };
 
-  // Modifier le secteur d'un étudiant depuis la liste
+  // 6. Modifier le secteur d'un étudiant depuis la liste
   const handleUpdateSector = async (userId, newSector) => {
     try {
-      const token = localStorage.getItem('token');
+      const activeToken = token || localStorage.getItem('token');
       await axios.put(`http://localhost:5000/api/users/${userId}/sector`, { sector: newSector }, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${activeToken}` }
       });
-      fetchInstructorCourses(token); // Rafraîchit les données pour afficher le nouveau secteur partout
+      fetchData(); // <-- CORRECTION : Recharge la liste complète des étudiants
+      toast.success("Secteur mis à jour avec succès !");
     } catch (error) {
-      // ON AFFICHE LE VRAI MESSAGE :
-      alert("Erreur Secteur : " + (error.response?.data?.message || error.message));
+      toast.error("Erreur Secteur : " + (error.response?.data?.message || error.message)); // <-- CORRECTION : C'est bien une erreur !
     }
   };
 
-  // Extraire la liste unique des étudiants (pour éviter les doublons s'ils ont plusieurs cours)
+  // 7. Extraire la liste unique des étudiants (pour éviter les doublons s'ils ont plusieurs cours)
   const uniqueStudents = [];
   const studentIds = new Set();
   if (allStudents) {
     allStudents.forEach(enrollment => {
-      if (!studentIds.has(enrollment.user.id)) {
+      if (enrollment?.user && !studentIds.has(enrollment.user.id)) {
         studentIds.add(enrollment.user.id);
         uniqueStudents.push(enrollment.user);
       }
     });
   }
 
+  
   if (!user) return null;
 
   return (
@@ -400,44 +411,32 @@ export default function InstructorPortal() {
           </div>
         </header>
 
-        <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+        <div className="p-8 max-w-7xl mx-auto space-y-8">
           
-          {/* HEADER DE SECTION */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm mb-8">
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                {activeTab === 'COURSES' ? 'Gestion des Formations' 
-                 : activeTab === 'BRANCHES' ? 'Gestion des Filières' 
-                 : 'Annuaire Global des Apprenants'}
-              </h1>
-              <p className="text-slate-500 text-sm mt-1">
-                {activeTab === 'COURSES' ? 'Créez du contenu technique et suivez les certifications de vos équipes.' 
-                 : activeTab === 'BRANCHES' ? 'Organisez vos modules par spécialités (ex: CACES, SAS, TPS).' 
-                 : 'Visualisez les progressions de tous les techniciens inscrits à vos modules.'}
-              </p>
+          {/* HEADER SUPPRIMÉ POUR L'ONGLET RH ! On ne l'affiche que pour les cours et les branches */}
+          {activeTab !== 'STUDENTS' && (
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-sm border border-slate-200 shadow-sm border-t-4 border-t-slate-900">
+              <div>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">
+                  {activeTab === 'COURSES' ? 'Gestion des Formations' : 'Gestion des Filières'}
+                </h1>
+                <p className="text-slate-500 text-sm mt-1 font-medium">
+                  {activeTab === 'COURSES' ? 'Créez du contenu technique et suivez les certifications de vos équipes.' : 'Organisez vos modules par spécialités (ex: CACES, SAS).'}
+                </p>
+              </div>
+              
+              {activeTab === 'COURSES' && (
+                <button onClick={() => setIsCreatingCourse(true)} className="px-6 py-3 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-sm hover:bg-[#EB0A1E] transition-all flex items-center gap-2 shadow-md">
+                  <Plus className="w-4 h-4" /> Nouveau Module
+                </button>
+              )}
+              {activeTab === 'BRANCHES' && (
+                <button onClick={() => { setEditingCategory(null); setCategoryData({ name: '', imageUrl: '' }); setIsCategoryModalOpen(true); }} className="px-6 py-3 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-sm hover:bg-[#EB0A1E] transition-all flex items-center gap-2 shadow-md">
+                  <Plus className="w-4 h-4" /> Nouvelle Filière
+                </button>
+              )}
             </div>
-            
-            {/* Les boutons s'affichent uniquement si on est dans le bon onglet */}
-            {activeTab === 'COURSES' && (
-              <button 
-                onClick={() => setIsCreating(true)} 
-                className="px-5 py-2.5 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] transition-all flex items-center gap-2 shadow-sm active:scale-95"
-              >
-                <span className="text-lg font-bold leading-none">+</span>
-                <span>Nouveau Module</span>
-              </button>
-            )}
-            
-            {activeTab === 'BRANCHES' && (
-              <button 
-                onClick={() => { setEditingCategory(null); setCategoryData({ name: '', imageUrl: '' }); setIsCategoryModalOpen(true); }} 
-                className="px-5 py-2.5 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] transition-all flex items-center gap-2 shadow-sm active:scale-95"
-              >
-                <span className="text-lg font-bold leading-none">+</span>
-                <span>Nouvelle Filière</span>
-              </button>
-            )}
-          </div>
+          )}
 
           {/* ========================================= */}
           {/* ONGLET : SUIVI GLOBAL ÉTUDIANTS (VUE RH)  */}
@@ -445,46 +444,77 @@ export default function InstructorPortal() {
           {activeTab === 'STUDENTS' && (
             <div className="space-y-6">
               
-              {/* 1. LES KPI (Indicateurs Clés) */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white p-6 rounded-sm border border-slate-200 shadow-sm border-t-4 border-t-slate-800">
-                  <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1">Taux de validation </p>
-                  <h3 className={`text-3xl font-black ${kpiCompliance >= 80 ? 'text-emerald-600' : 'text-orange-500'}`}>{kpiCompliance}%</h3>
-                </div>
-                <div 
-                  onClick={() => setIsSectorModalOpen(true)}
-                  className="bg-white p-6 rounded-sm border border-slate-200 shadow-sm cursor-pointer hover:border-[#EB0A1E] hover:shadow-md transition-all group"
-                  title="Cliquez pour gérer les secteurs des apprenants"
-                >
-                  <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1 group-hover:text-[#EB0A1E] transition-colors flex justify-between items-center">
-                    Total Inscrits <span>✎ Gérer</span>
-                  </p>
-                  <h3 className="text-3xl font-black text-slate-900 group-hover:text-[#EB0A1E] transition-colors">{kpiTotal}</h3>
-                </div>
-                <div className="bg-white p-6 rounded-sm border border-slate-200 shadow-sm">
-                  <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1">Certifications Validées</p>
-                  <h3 className="text-3xl font-black text-emerald-600">{kpiValidated}</h3>
-                </div>
-                <div className="bg-white p-6 rounded-sm border border-slate-200 shadow-sm border-t-4 border-t-[#EB0A1E]">
-                  <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1">Alertes / En Retard</p>
-                  <h3 className="text-3xl font-black text-[#EB0A1E]">{kpiLate}</h3>
+              {/* --- LES GRAPHIQUES VISUELS (CHARTS) --- */}
+              <div className="bg-white p-8 rounded-sm border border-slate-200 shadow-sm border-t-4 border-t-[#EB0A1E]">
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-8">Performance Globale</h3>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-center">
+                  
+                  {/* Jauge Principale (Conformité) */}
+                  <div className="flex flex-col items-center justify-center lg:border-r border-slate-100">
+                     <div className="relative w-40 h-40 flex items-center justify-center mb-4">
+                       <svg className="w-full h-full transform -rotate-90">
+                         <circle cx="80" cy="80" r="70" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
+                         <circle 
+                            cx="80" cy="80" r="70" stroke="currentColor" strokeWidth="12" fill="transparent" 
+                            strokeDasharray="439.8" strokeDashoffset={439.8 - (439.8 * pctValidated) / 100} 
+                            className="text-emerald-500 transition-all duration-1000 ease-out" 
+                         />
+                       </svg>
+                       <div className="absolute flex flex-col items-center">
+                         <span className="text-4xl font-black text-slate-900">{pctValidated}%</span>
+                       </div>
+                     </div>
+                     <span className="text-xs uppercase font-black tracking-widest text-emerald-600 bg-emerald-50 px-3 py-1 rounded-sm">Conformité</span>
+                  </div>
+
+                  {/* Barres de répartition horizontales */}
+                  <div className="lg:col-span-2 flex flex-col justify-center space-y-6">
+                     <div>
+                       <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-2">
+                         <span className="text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Certifiés ({countValidated})</span>
+                         <span className="text-slate-900">{pctValidated}%</span>
+                       </div>
+                       <div className="w-full h-3 bg-slate-100 rounded-sm overflow-hidden">
+                         <div className="h-full bg-emerald-500 transition-all duration-1000" style={{width: `${pctValidated}%`}}></div>
+                       </div>
+                     </div>
+                     
+                     <div>
+                       <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-2">
+                         <span className="text-blue-600 flex items-center gap-1"><Clock className="w-3 h-3"/> En formation ({countInProgress})</span>
+                         <span className="text-slate-900">{pctInProgress}%</span>
+                       </div>
+                       <div className="w-full h-3 bg-slate-100 rounded-sm overflow-hidden">
+                         <div className="h-full bg-blue-500 transition-all duration-1000" style={{width: `${pctInProgress}%`}}></div>
+                       </div>
+                     </div>
+
+                     <div>
+                       <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-2">
+                         <span className="text-[#EB0A1E] flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> Échecs & Retards ({countFailed + countLate})</span>
+                         <span className="text-slate-900">{pctFailedLate}%</span>
+                       </div>
+                       <div className="w-full h-3 bg-slate-100 rounded-sm overflow-hidden">
+                         <div className="h-full bg-[#EB0A1E] transition-all duration-1000" style={{width: `${pctFailedLate}%`}}></div>
+                       </div>
+                     </div>
+                  </div>
                 </div>
               </div>
 
-              {/* 2. LA BARRE DE FILTRES ET D'EXPORT */}
-              <div className="bg-white p-4 rounded-sm border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+              {/* BARRE DE FILTRES ET D'EXPORT */}
+              <div className="bg-white p-4 rounded-sm border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between">
                 
-                <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-                  {/* Recherche */}
+                <div className="flex flex-col md:flex-row gap-3 w-full lg:w-auto">
                   <div className="relative flex-1 md:w-64">
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input type="text" placeholder="Rechercher technicien, cours..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-sm focus:border-[#EB0A1E] outline-none" />
+                    <input type="text" placeholder="Rechercher matricule, cours..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-sm text-sm font-semibold focus:border-[#EB0A1E] outline-none" />
                   </div>
                   
-                  {/* Filtre Secteur */}
                   <div className="relative">
                     <Filter className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <select value={sectorFilter} onChange={e => setSectorFilter(e.target.value)} className="pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-sm text-sm focus:border-[#EB0A1E] outline-none appearance-none font-semibold text-slate-700">
+                    <select value={sectorFilter} onChange={e => setSectorFilter(e.target.value)} className="w-full md:w-auto pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-sm text-xs font-bold uppercase tracking-wider focus:border-[#EB0A1E] outline-none appearance-none text-slate-700">
                       <option value="ALL">Tous les secteurs</option>
                       <option value="Casablanca">Casablanca</option>
                       <option value="Tanger">Tanger</option>
@@ -494,32 +524,35 @@ export default function InstructorPortal() {
                     </select>
                   </div>
 
-                  {/* Filtre Statut */}
-                  <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-sm focus:border-[#EB0A1E] outline-none font-semibold text-slate-700">
+                  <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full md:w-auto px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-sm text-xs font-bold uppercase tracking-wider focus:border-[#EB0A1E] outline-none text-slate-700">
                     <option value="ALL">Tous les statuts</option>
-                    <option value="VALIDATED">Validés uniquement</option>
+                    <option value="VALIDATED">Certifiés uniquement</option>
                     <option value="IN_PROGRESS">En cours</option>
                     <option value="LATE">⚠️ En Retard</option>
                     <option value="FAILED">Échecs</option>
                   </select>
                 </div>
 
-                {/* Bouton Export Excel */}
-                <button onClick={handleExportCSV} className="w-full md:w-auto px-6 py-2 bg-emerald-600 text-white font-bold text-xs uppercase tracking-widest rounded-sm hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 shadow-sm">
-                  <Download className="w-4 h-4" /> Export CSV
-                </button>
+                <div className="flex gap-3 w-full lg:w-auto">
+                  <button onClick={() => setIsSectorModalOpen(true)} className="flex-1 lg:flex-none px-6 py-2.5 bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-sm hover:bg-slate-200 transition-colors border border-slate-300">
+                    ⚙️ Gérer Affectations
+                  </button>
+                  <button onClick={handleExportCSV} className="flex-1 lg:flex-none px-6 py-2.5 bg-[#111827] text-white font-black text-[10px] uppercase tracking-widest rounded-sm hover:bg-[#EB0A1E] transition-colors flex items-center justify-center gap-2 shadow-md">
+                    <Download className="w-3.5 h-3.5" /> Export Excel
+                  </button>
+                </div>
 
               </div>
 
-              {/* 3. LE GRAND TABLEAU */}
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left whitespace-nowrap">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
-                      <tr>
-                        <th className="px-6 py-4">Technicien</th>
+              {/* LE GRAND TABLEAU */}
+              <div className="bg-white rounded-sm shadow-sm border border-slate-200 overflow-hidden">
+                <div className="w-full max-w-full overflow-x-auto pb-2 custom-scrollbar">
+                  <table className="w-full text-left whitespace-nowrap min-w-[800px]">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
+                      <tr className="hover:bg-slate-50 transition-colors relative hover:z-50">
+                        <th className="px-6 py-4">Collaborateur</th>
                         <th className="px-6 py-4">Secteur</th>
-                        <th className="px-6 py-4">Formation Suivie</th>
+                        <th className="px-6 py-4">Module</th>
                         <th className="px-6 py-4">Statut</th>
                         <th className="px-6 py-4">Score</th>
                         <th className="px-6 py-4 text-right">Actions RH</th>
@@ -530,13 +563,12 @@ export default function InstructorPortal() {
                         <tr>
                           <td colSpan="6" className="px-6 py-12 text-center">
                             <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                            <p className="text-slate-500 font-bold">Aucun technicien ne correspond à ces critères.</p>
+                            <p className="text-slate-500 font-bold text-sm">Aucun collaborateur trouvé.</p>
                           </td>
                         </tr>
                       ) : (
                         filteredStudents.map((enrollment, index) => {
                           const retard = isLate(enrollment);
-                          
                           return (
                           <tr key={enrollment?.id || index} className="hover:bg-slate-50 transition-colors">
                             <td className="px-6 py-4 flex items-center gap-3">
@@ -545,11 +577,11 @@ export default function InstructorPortal() {
                               </div>
                               <div>
                                 <p className="font-bold text-slate-900">{enrollment?.user?.name || 'Inconnu'}</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{enrollment?.user?.email}</p>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{enrollment?.user?.email}</p>
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <span className="font-bold text-slate-700 text-xs bg-slate-100 px-2 py-1 rounded-sm border border-slate-200 uppercase">
+                              <span className="font-bold text-slate-600 text-[10px] uppercase tracking-widest bg-slate-100 px-2.5 py-1 rounded-sm border border-slate-200">
                                 {enrollment?.user?.sector || 'Non assigné'}
                               </span>
                             </td>
@@ -571,7 +603,7 @@ export default function InstructorPortal() {
                               )}
                             </td>
                             <td className="px-6 py-4">
-                              {enrollment?.finalGrade !== null ? (
+                              {enrollment?.finalGrade !== null && enrollment?.finalGrade !== undefined ? (
                                 <p className={`font-black text-sm ${enrollment?.status === 'VALIDATED' ? 'text-emerald-600' : 'text-[#EB0A1E]'}`}>
                                   {enrollment.finalGrade} <span className="text-[9px] text-slate-400 font-bold">/ 20</span>
                                 </p>
@@ -599,8 +631,8 @@ export default function InstructorPortal() {
 
           {/* --- ONGLET : COURS --- */}
           {activeTab === 'COURSES' && (
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-visible">
+              <div className="w-full max-w-full overflow-visible pb-4 custom-scrollbar">
                 <table className="w-full text-left whitespace-nowrap">
                   <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
                     <tr>

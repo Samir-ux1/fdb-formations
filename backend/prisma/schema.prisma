@@ -16,12 +16,15 @@ model User {
   lastName  String?  
   birthDate String?  
   phone     String?  
-  avatarUrl String?
+  avatarUrl String?  @db.Text
   email     String   @unique
   password  String
   role      Role     @default(STUDENT)
   status    String   @default("APPROVED") // APPROVED, PENDING, REJECTED
   sector    String? 
+
+  isEmailVerified   Boolean @default(false)
+  verificationToken String?
   createdAt DateTime @default(now())
   coursesCreated Course[]     @relation("InstructorCourses")
   enrollments    Enrollment[]
