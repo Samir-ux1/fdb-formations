@@ -3,12 +3,27 @@ const cors = require('cors');
 const userRoutes = require('./src/routes/userRoutes');
 require('dotenv').config();
 const startCronJobs = require('./src/cron/reminderJob');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 // Initialisation de l'application
 const app = express();
 
 const fs = require('fs');
 const path = require('path');
+
+// 1. Helmet cache les informations de votre serveur aux hackers
+app.use(helmet());
+
+// 2. Rate Limit empêche un hacker de tester 1000 mots de passe ou "Clés secrètes" par seconde
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limite chaque adresse IP à 100 requêtes toutes les 15 min
+  message: "Trop de requêtes, veuillez réessayer plus tard."
+});
+app.use(limiter);
+
+
 
 // Crée le dossier "uploads" s'il n'existe pas
 const uploadDir = path.join(__dirname, 'uploads');
@@ -27,7 +42,14 @@ app.use('/uploads', express.static(uploadDir, {
 }));
 
 // Middlewares
-app.use(cors()); // Autorise ton Frontend React à communiquer avec ce Backend
+const corsOptions = {
+  origin: [
+    'http://localhost:5173', // Autoriser le local pour vos tests
+    'https://votre-frontend.vercel.app' // Remplacer par votre VRAIE URL Vercel !
+  ],
+  credentials: true, // Autoriser les tokens/cookies
+};
+app.use(cors(corsOptions)); // Autorise ton Frontend React à communiquer avec ce Backend
 app.use(express.json()); // Permet de lire les données JSON (formulaires)
 
 // Importation des routes
@@ -54,3 +76,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Serveur démarré sur le port ${PORT}`);
 });
+
+module.exports = app;

@@ -302,9 +302,9 @@ export default function Home() {
 
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
-  <Clock className="w-3.5 h-3.5 text-slate-400" />
-  <span>{course.timeLimitDays ? `${course.timeLimitDays} Jours max` : "À votre rythme"}</span>
-</div>
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{course.timeLimitDays ? `${course.timeLimitDays} Jours max` : "À votre rythme"}</span>
+                  </div>
 
                   <button
                     onClick={() => navigate('/catalog')}
