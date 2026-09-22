@@ -45,13 +45,13 @@ export default function Catalog() {
         const activeToken = token || localStorage.getItem('token');
         
         const requests = [
-          axios.get('http://localhost:5000/api/courses'),
-          axios.get('http://localhost:5000/api/categories')
+          axios.get('https://fdb-formations.vercel.app/api/courses'),
+          axios.get('https://fdb-formations.vercel.app/api/categories')
         ];
 
         if (activeToken) {
           requests.push(
-            axios.get('http://localhost:5000/api/courses/my-courses', {
+            axios.get('https://fdb-formations.vercel.app/api/courses/my-courses', {
               headers: { Authorization: `Bearer ${activeToken}` }
             })
           );
@@ -88,7 +88,7 @@ export default function Catalog() {
         return;
       }
 
-      await axios.post(`http://localhost:5000/api/courses/${selectedCourse.id}/unlock`, { key: accessKey }, { 
+      await axios.post(`https://fdb-formations.vercel.app/api/courses/${selectedCourse.id}/unlock`, { key: accessKey }, { 
         headers: { Authorization: `Bearer ${activeToken}` } 
       });
 

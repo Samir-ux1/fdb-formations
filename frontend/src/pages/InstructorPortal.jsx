@@ -72,13 +72,13 @@ export default function InstructorPortal() {
 
   const fetchInstructorCourses = async (token) => {
     try {
-      const response = await axios.get('http://localhost:5000/api/courses/instructor-courses', {
+      const response = await axios.get('https://fdb-formations.vercel.app/api/courses/instructor-courses', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const catRes = await axios.get('http://localhost:5000/api/categories');
+      const catRes = await axios.get('https://fdb-formations.vercel.app/api/categories');
       
-      const pendingRes = await axios.get('http://localhost:5000/api/users/pending', { headers: { Authorization: `Bearer ${token}` } });
-      const studentsRes = await axios.get('http://localhost:5000/api/courses/instructor-students', { headers: { Authorization: `Bearer ${token}` } });
+      const pendingRes = await axios.get('https://fdb-formations.vercel.app/api/users/pending', { headers: { Authorization: `Bearer ${token}` } });
+      const studentsRes = await axios.get('https://fdb-formations.vercel.app/api/courses/instructor-students', { headers: { Authorization: `Bearer ${token}` } });
       setCourses(response.data);
       setCategories(catRes.data);
       setPendingUsers(pendingRes.data);
@@ -87,7 +87,7 @@ export default function InstructorPortal() {
       // --- NOUVEAU : RÉCUPÉRER TOUS LES ÉTUDIANTS ---
       // On boucle sur chaque cours pour récupérer ses étudiants via votre API existante
       const studentsPromises = response.data.map(course => 
-        axios.get(`http://localhost:5000/api/courses/${course.id}/students`, {
+        axios.get(`https://fdb-formations.vercel.app/api/courses/${course.id}/students`, {
           headers: { Authorization: `Bearer ${token}` }
         }).then(res => 
           // On ajoute le nom du cours à chaque étudiant pour l'affichage
@@ -112,7 +112,7 @@ export default function InstructorPortal() {
   const handleReviewUser = async (userId, status) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put('http://localhost:5000/api/users/review', { userId, status, sector: status === 'APPROVED' ? selectedSector : null }, {
+      await axios.put('https://fdb-formations.vercel.app/api/users/review', { userId, status, sector: status === 'APPROVED' ? selectedSector : null }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setApprovingUserId(null);
@@ -129,12 +129,12 @@ export default function InstructorPortal() {
       const token = localStorage.getItem('token');
       
       if (editingCategory) {
-        await axios.put(`http://localhost:5000/api/categories/${editingCategory.id}`, categoryData, { 
+        await axios.put(`https://fdb-formations.vercel.app/api/categories/${editingCategory.id}`, categoryData, { 
           headers: { Authorization: `Bearer ${token}` } 
         });
         toast.success("Filière modifiée avec succès !");
       } else {
-        await axios.post('http://localhost:5000/api/categories', categoryData, { 
+        await axios.post('https://fdb-formations.vercel.app/api/categories', categoryData, { 
           headers: { Authorization: `Bearer ${token}` } 
         });
         toast.success("Filière créée avec succès !");
@@ -154,7 +154,7 @@ export default function InstructorPortal() {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/categories/${categoryId}`, {
+      await axios.delete(`https://fdb-formations.vercel.app/api/categories/${categoryId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchInstructorCourses(token); 
@@ -167,7 +167,7 @@ export default function InstructorPortal() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/courses', newCourse, {
+      await axios.post('https://fdb-formations.vercel.app/api/courses', newCourse, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setIsCreating(false);
@@ -254,7 +254,7 @@ export default function InstructorPortal() {
   const handleUpdateSector = async (userId, newSector) => {
     try {
       const activeToken = token || localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/users/${userId}/sector`, { sector: newSector }, {
+      await axios.put(`https://fdb-formations.vercel.app/api/users/${userId}/sector`, { sector: newSector }, {
         headers: { Authorization: `Bearer ${activeToken}` }
       });
       fetchData(); // <-- CORRECTION : Recharge la liste complète des étudiants

@@ -36,7 +36,7 @@ export default function RedeemModal() {
     }
 
     try {
-      const coursesRes = await axios.get('http://localhost:5000/api/courses');
+      const coursesRes = await axios.get('https://fdb-formations.vercel.app/api/courses');
       const matchedCourse = coursesRes.data.find(c => c.accessKey.toUpperCase() === formattedKey);
 
       if (!matchedCourse) {
@@ -45,7 +45,7 @@ export default function RedeemModal() {
         return;
       }
 
-      await axios.post(`http://localhost:5000/api/courses/${matchedCourse.id}/unlock`, { key: formattedKey }, {
+      await axios.post(`https://fdb-formations.vercel.app/api/courses/${matchedCourse.id}/unlock`, { key: formattedKey }, {
         headers: { Authorization: `Bearer ${activeToken}` }
       });
 

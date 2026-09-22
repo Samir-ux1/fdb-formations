@@ -66,7 +66,7 @@ export default function Dashboard() {
 
     const fetchMyCourses = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/courses/my-courses', {
+        const response = await axios.get('https://fdb-formations.vercel.app/api/courses/my-courses', {
           headers: { Authorization: `Bearer ${token}` }
         });
         
@@ -114,7 +114,7 @@ export default function Dashboard() {
     const token = localStorage.getItem('token');
     try {
       // Appel API fictif ou réel pour valider la clé d'accès (adaptable selon votre route backend)
-      await axios.post('http://localhost:5000/api/courses/unlock', { key: quickKey.trim() }, {
+      await axios.post('https://fdb-formations.vercel.app/api/courses/unlock', { key: quickKey.trim() }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

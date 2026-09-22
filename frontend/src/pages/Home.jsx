@@ -73,13 +73,13 @@ export default function Home() {
     const fetchCourses = async () => {
       try {
         // A. Les cours "À la une" pour tout le monde (visiteurs inclus)
-        const response = await axios.get('http://localhost:5000/api/courses');
+        const response = await axios.get('https://fdb-formations.vercel.app/api/courses');
         setFeaturedCourses(response.data.slice(0, 3)); 
 
         // B. NOUVEAU : Si l'utilisateur est connecté, on calcule ses cours "En cours"
         if (activeUser) {
           const token = localStorage.getItem('token');
-          const myCoursesRes = await axios.get('http://localhost:5000/api/courses/my-courses', {
+          const myCoursesRes = await axios.get('https://fdb-formations.vercel.app/api/courses/my-courses', {
             headers: { Authorization: `Bearer ${token}` }
           });
           

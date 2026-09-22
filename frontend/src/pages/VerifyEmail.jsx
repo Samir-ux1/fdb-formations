@@ -26,7 +26,7 @@ export default function VerifyEmail() {
 
     const verifyToken = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/auth/verify-email?token=${token}`);
+        const response = await axios.get(`https://fdb-formations.vercel.app/api/auth/verify-email?token=${token}`);
         setStatus('success');
         setMessage(response.data.message);
       } catch (error) {
