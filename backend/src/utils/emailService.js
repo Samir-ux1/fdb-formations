@@ -1,30 +1,40 @@
 const nodemailer = require('nodemailer');
 
-// Configuration du transporteur d'email (Utilisation de Gmail pour ton PFA)
+// Configuration du transporteur d'email
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER, // Ton adresse Gmail
-    pass: process.env.EMAIL_PASS  // Ton mot de passe d'application Gmail
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
   }
 });
 
 // Fonction pour envoyer l'email de vérification
 exports.sendVerificationEmail = async (userEmail, userName, token) => {
-  const verifyUrl = `http://localhost:5173/verify-email?token=${token}`;
+  
+  // 1. CORRECTION DU LIEN : On met la VRAIE adresse de votre plateforme en ligne
+  const verifyUrl = `https://fdb-formations-4iqs-tau.vercel.app/verify-email?token=${token}`;
   
   const mailOptions = {
-    from: '"Toyota Material Handling" <tonemail@gmail.com>',
+    // 2. CORRECTION DU SPAM : On utilise votre VRAIE variable d'email
+    from: `"Toyota Learning Hub" <${process.env.EMAIL_USER}>`, 
     to: userEmail,
     subject: 'Action Requise : Vérifiez votre adresse email',
     html: `
-      <h2>Bienvenue ${userName} !</h2>
-      <p>Votre compte a été créé avec succès. Pour des raisons de sécurité, veuillez vérifier votre adresse email en cliquant sur le lien ci-dessous :</p>
-      <a href="${verifyUrl}" style="padding: 10px 20px; background-color: #E3000F; color: white; text-decoration: none; border-radius: 4px;">Vérifier mon compte</a>
-      <p>Une fois vérifié, votre manager pourra approuver votre accès.</p>
+      <div style="font-family: Arial, sans-serif; max-w-md; margin: auto;">
+        <h2>Bienvenue ${userName} !</h2>
+        <p>Votre compte a été créé avec succès. Pour des raisons de sécurité, veuillez vérifier votre adresse email en cliquant sur le lien ci-dessous :</p>
+        <br/>
+        <a href="${verifyUrl}" style="padding: 12px 24px; background-color: #EB0A1E; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
+          Vérifier mon compte
+        </a>
+        <br/><br/>
+        <p>Une fois vérifié, votre manager pourra approuver votre accès aux modules techniques.</p>
+      </div>
     `
   };
 
+  // 3. On attend bien la fin de l'envoi
   return await transporter.sendMail(mailOptions);
 };
 
