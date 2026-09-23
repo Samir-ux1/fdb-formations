@@ -253,7 +253,7 @@ export default function InstructorPortal() {
   // 6. Modifier le secteur d'un étudiant depuis la liste
   const handleUpdateSector = async (userId, newSector) => {
     try {
-      const activeToken = token || localStorage.getItem('token');
+      const activeToken = localStorage.getItem('token');
       await axios.put(`https://fdb-formations.vercel.app/api/users/${userId}/sector`, { sector: newSector }, {
         headers: { Authorization: `Bearer ${activeToken}` }
       });
