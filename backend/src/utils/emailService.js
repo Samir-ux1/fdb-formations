@@ -25,7 +25,7 @@ exports.sendVerificationEmail = async (userEmail, userName, token) => {
     `
   };
 
-  await transporter.sendMail(mailOptions);
+  return await transporter.sendMail(mailOptions);
 };
 
 // Fonction pour le rappel des 2 jours restants

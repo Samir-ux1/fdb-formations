@@ -13,7 +13,7 @@ exports.register = async (req, res) => {
     const userExists = await prisma.user.findUnique({ where: { email } });
     if (userExists) {
       console.log("❌ [ERREUR] L'email existe déjà dans la base !");
-      return res.status(400).json({ message: "Cet email est déjà utilisé. Veuillez en choisir un autre." });
+      return res.status(400).json({ message: "Cet email est déjà utilisé." });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -22,7 +22,9 @@ exports.register = async (req, res) => {
 
     const newUser = await prisma.user.create({
       data: {
-        name, email, password: hashedPassword,
+        name, 
+        email, 
+        password: hashedPassword,
         role: role || 'STUDENT',
         status: 'PENDING',
         verificationToken
@@ -30,11 +32,15 @@ exports.register = async (req, res) => {
     });
     console.log("✅ [2] Compte créé avec succès dans PostgreSQL !");
 
-    // On envoie le mail en arrière-plan
-    
-    await emailService.sendVerificationEmail(newUser.email, newUser.name, verificationToken)
-      .then(() => console.log("📧 [3] Email de vérification envoyé à Google !"))
-      .catch(err => console.error("⚠️ [ERREUR] Problème d'email :", err.message));
+    // On force Vercel à s'arrêter et à attendre l'envoi de l'email
+    try {
+      await emailService.sendVerificationEmail(newUser.email, newUser.name, verificationToken);
+      console.log("📧 [3] Email de vérification envoyé à Google !");
+    } catch (emailError) {
+      console.error("⚠️ [ERREUR EMAIL] L'envoi a échoué :", emailError.message);
+      // On répond quand même 201 pour ne pas bloquer l'étudiant, mais on le signale
+      return res.status(201).json({ message: "Compte créé, mais l'envoi de l'email a échoué. Contactez le formateur." });
+    }
 
     console.log("🚀 [4] Réponse 201 envoyée au Frontend !");
     return res.status(201).json({ message: "Inscription réussie." });
