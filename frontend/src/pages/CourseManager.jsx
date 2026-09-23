@@ -1239,6 +1239,28 @@ export default function CourseManager() {
                 </div>
               </div>
 
+              {/* Détails par leçon */}
+              <div>
+                <h4 className="font-black text-slate-900 mb-2.5 text-sm uppercase tracking-wider">Chapitres validés</h4>
+                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-2xl divide-y divide-slate-100 bg-slate-50 custom-scrollbar">
+                  {(!selectedStudent.user.lessonProgresses || selectedStudent.user.lessonProgresses.length === 0) ? (
+                    <p className="p-4 text-slate-500 text-xs font-semibold text-center">Aucun chapitre terminé.</p>
+                  ) : (
+                    selectedStudent.user.lessonProgresses.map((progress, idx) => (
+                      <div key={idx} className="p-3 flex justify-between items-center bg-white hover:bg-slate-50 transition-colors">
+                        <p className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                          <span className="w-5 h-5 bg-slate-100 text-slate-500 rounded flex items-center justify-center text-[10px]">{progress.lesson.order}</span>
+                          <span className="truncate max-w-[200px]">{progress.lesson.title}</span>
+                        </p>
+                        <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0 ${(progress.score ?? 20) >= 10 ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-[#EB0A1E] border border-red-100'}`}>
+                          Score: {progress.score ?? 20}/20
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
               {/* Score Examen Final Brut */}
               <div className="p-4 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm">
                 <span className="font-black text-slate-700 uppercase tracking-wider text-[10px]">Note brute Examen Final :</span>

@@ -257,7 +257,7 @@ export default function InstructorPortal() {
       await axios.put(`https://fdb-formations.vercel.app/api/users/${userId}/sector`, { sector: newSector }, {
         headers: { Authorization: `Bearer ${activeToken}` }
       });
-      fetchData(); // <-- CORRECTION : Recharge la liste complète des étudiants
+      fetchInstructorCourses(activeToken); 
       toast.success("Secteur mis à jour avec succès !");
     } catch (error) {
       toast.error("Erreur Secteur : " + (error.response?.data?.message || error.message)); // <-- CORRECTION : C'est bien une erreur !
@@ -426,7 +426,7 @@ export default function InstructorPortal() {
               </div>
               
               {activeTab === 'COURSES' && (
-                <button onClick={() => setIsCreatingCourse(true)} className="px-6 py-3 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-sm hover:bg-[#EB0A1E] transition-all flex items-center gap-2 shadow-md">
+                <button onClick={() => setIsCreating(true)} className="px-6 py-3 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-sm hover:bg-[#EB0A1E] transition-all flex items-center gap-2 shadow-md">
                   <Plus className="w-4 h-4" /> Nouveau Module
                 </button>
               )}
