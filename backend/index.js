@@ -42,14 +42,14 @@ app.use('/uploads', express.static(uploadDir, {
 }));
 
 // Middlewares
-const corsOptions = {
+app.use(cors({
   origin: [
-    'http://localhost:5173', // Autoriser le local pour vos tests
-    'https://votre-frontend.vercel.app' // Remplacer par votre VRAIE URL Vercel !
+    'http://localhost:5173', // Pour continuer à tester sur votre PC
+    'https://fdb-formations-4iqs-tau.vercel.app' // L'URL exacte de votre Frontend sur Vercel !
   ],
-  credentials: true, // Autoriser les tokens/cookies
-};
-app.use(cors(corsOptions)); // Autorise ton Frontend React à communiquer avec ce Backend
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true, // Autorise l'envoi du Token
+}));
 app.use(express.json()); // Permet de lire les données JSON (formulaires)
 
 // Importation des routes
