@@ -31,7 +31,8 @@ exports.register = async (req, res) => {
     console.log("✅ [2] Compte créé avec succès dans PostgreSQL !");
 
     // On envoie le mail en arrière-plan
-    emailService.sendVerificationEmail(newUser.email, newUser.name, verificationToken)
+    
+    await emailService.sendVerificationEmail(newUser.email, newUser.name, verificationToken)
       .then(() => console.log("📧 [3] Email de vérification envoyé à Google !"))
       .catch(err => console.error("⚠️ [ERREUR] Problème d'email :", err.message));
 
