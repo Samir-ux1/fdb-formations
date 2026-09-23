@@ -534,7 +534,7 @@ export default function InstructorPortal() {
                 </div>
 
                 <div className="flex gap-3 w-full lg:w-auto">
-                  <button onClick={() => setIsSectorModalOpen(true)} className="flex-1 lg:flex-none px-6 py-2.5 bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-sm hover:bg-slate-200 transition-colors border border-slate-300">
+                  <button onClick={() => isSectorModalOpen(true)} className="flex-1 lg:flex-none px-6 py-2.5 bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-sm hover:bg-slate-200 transition-colors border border-slate-300">
                     ⚙️ Gérer Affectations
                   </button>
                   <button onClick={handleExportCSV} className="flex-1 lg:flex-none px-6 py-2.5 bg-[#111827] text-white font-black text-[10px] uppercase tracking-widest rounded-sm hover:bg-[#EB0A1E] transition-colors flex items-center justify-center gap-2 shadow-md">
