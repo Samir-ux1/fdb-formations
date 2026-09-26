@@ -4,18 +4,20 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const emailService = require('../utils/emailService');
 
-// --- INSCRIPTION (REGISTER) ---
 exports.register = async (req, res) => {
-  console.log("👉 [1] Début inscription pour :", req.body.email);
+  console.log("👉 Début inscription pour :", req.body.email);
+  
   try {
     const { name, email, password, role } = req.body;
 
+    // 1. Vérification si l'utilisateur existe
     const userExists = await prisma.user.findUnique({ where: { email } });
     if (userExists) {
-      console.log("❌ [ERREUR] L'email existe déjà dans la base !");
+      console.log("❌ Email déjà existant.");
       return res.status(400).json({ message: "Cet email est déjà utilisé." });
     }
 
+    // 2. Création du compte sécurisé
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -30,24 +32,26 @@ exports.register = async (req, res) => {
         verificationToken
       }
     });
-    console.log("✅ [2] Compte créé avec succès dans PostgreSQL !");
+    console.log("✅ Utilisateur créé dans la BDD Neon !");
 
-    // On force Vercel à s'arrêter et à attendre l'envoi de l'email
+    // 3. LA BULLE DE PROTECTION POUR L'EMAIL
     try {
+      console.log("⏳ Tentative d'envoi de l'email...");
       await emailService.sendVerificationEmail(newUser.email, newUser.name, verificationToken);
-      console.log("📧 [3] Email de vérification envoyé à Google !");
+      console.log("📧 Email envoyé avec succès !");
+      
+      return res.status(201).json({ message: "Inscription réussie ! Veuillez vérifier votre email." });
+      
     } catch (emailError) {
-      console.error("⚠️ [ERREUR EMAIL] L'envoi a échoué :", emailError.message);
-      // On répond quand même 201 pour ne pas bloquer l'étudiant, mais on le signale
-      return res.status(201).json({ message: "Compte créé, mais l'envoi de l'email a échoué. Contactez le formateur." });
+      // SI L'EMAIL PLANTE, ON RENTRE ICI MAIS LE SERVEUR NE CRASHE PAS !
+      console.error("⚠️ ERREUR D'ENVOI D'EMAIL :", emailError);
+      return res.status(201).json({ message: "Compte créé, mais l'envoi de l'email a échoué. (Erreur Gmail)" });
     }
 
-    console.log("🚀 [4] Réponse 201 envoyée au Frontend !");
-    return res.status(201).json({ message: "Inscription réussie." });
-
   } catch (error) {
-    console.error("🔥 [ERREUR FATALE] :", error);
-    return res.status(500).json({ message: "Erreur serveur.", error: error.message });
+    // Si c'est Prisma (Base de données) qui plante
+    console.error("🔥 ERREUR FATALE (Base de données) :", error);
+    return res.status(500).json({ message: "Erreur critique du serveur.", error: error.message });
   }
 };
 
