@@ -4,20 +4,18 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const emailService = require('../utils/emailService');
 
+// --- INSCRIPTION (REGISTER) ---
 exports.register = async (req, res) => {
-  console.log("👉 Début inscription pour :", req.body.email);
-  
+  console.log("👉 [1] Début inscription pour :", req.body.email);
   try {
     const { name, email, password, role } = req.body;
 
-    // 1. Vérification si l'utilisateur existe
     const userExists = await prisma.user.findUnique({ where: { email } });
     if (userExists) {
-      console.log("❌ Email déjà existant.");
+      console.log("❌ [ERREUR] L'email existe déjà dans la base !");
       return res.status(400).json({ message: "Cet email est déjà utilisé." });
     }
 
-    // 2. Création du compte sécurisé
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -32,26 +30,24 @@ exports.register = async (req, res) => {
         verificationToken
       }
     });
-    console.log("✅ Utilisateur créé dans la BDD Neon !");
+    console.log("✅ [2] Compte créé avec succès dans PostgreSQL !");
 
-    // 3. LA BULLE DE PROTECTION POUR L'EMAIL
+    // On force Vercel à s'arrêter et à attendre l'envoi de l'email
     try {
-      console.log("⏳ Tentative d'envoi de l'email...");
       await emailService.sendVerificationEmail(newUser.email, newUser.name, verificationToken);
-      console.log("📧 Email envoyé avec succès !");
-      
-      return res.status(201).json({ message: "Inscription réussie ! Veuillez vérifier votre email." });
-      
+      console.log("📧 [3] Email de vérification envoyé à Google !");
     } catch (emailError) {
-      // SI L'EMAIL PLANTE, ON RENTRE ICI MAIS LE SERVEUR NE CRASHE PAS !
-      console.error("⚠️ ERREUR D'ENVOI D'EMAIL :", emailError);
-      return res.status(201).json({ message: "Compte créé, mais l'envoi de l'email a échoué. (Erreur Gmail)" });
+      console.error("⚠️ [ERREUR EMAIL] L'envoi a échoué :", emailError.message);
+      // On répond quand même 201 pour ne pas bloquer l'étudiant, mais on le signale
+      return res.status(201).json({ message: "Compte créé, mais l'envoi de l'email a échoué. Contactez le formateur." });
     }
 
+    console.log("🚀 [4] Réponse 201 envoyée au Frontend !");
+    return res.status(201).json({ message: "Inscription réussie." });
+
   } catch (error) {
-    // Si c'est Prisma (Base de données) qui plante
-    console.error("🔥 ERREUR FATALE (Base de données) :", error);
-    return res.status(500).json({ message: "Erreur critique du serveur.", error: error.message });
+    console.error("🔥 [ERREUR FATALE] :", error);
+    return res.status(500).json({ message: "Erreur serveur.", error: error.message });
   }
 };
 
@@ -96,42 +92,35 @@ exports.login = async (req, res) => {
   }
 };
 
-// --- VÉRIFICATION DE L'EMAIL ---
+// --- VÉRIFIER L'ADRESSE EMAIL ---
 exports.verifyEmail = async (req, res) => {
-  console.log("👉 Demande de vérification reçue pour le token :", req.body.token);
-
   try {
-    const { token } = req.body;
+    const { token } = req.query; // On récupère le token dans l'URL
 
     if (!token) {
-      return res.status(400).json({ message: "Aucun token fourni." });
+      return res.status(400).json({ message: "Token manquant." });
     }
 
-    // 1. Chercher l'utilisateur qui possède ce token exact dans la BDD
+    // 1. Chercher l'utilisateur qui possède ce token exact
     const user = await prisma.user.findFirst({
       where: { verificationToken: token }
     });
 
-    // 2. Si on ne trouve personne, c'est que le lien est faux ou a déjà été cliqué
     if (!user) {
-      console.log("❌ Token introuvable ou déjà utilisé.");
       return res.status(400).json({ message: "Lien de vérification invalide ou expiré." });
     }
 
-    // 3. Mettre à jour l'utilisateur !
+    // 2. Mettre à jour l'utilisateur : Email vérifié !
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        status: 'VERIFIED', // L'email est validé (il attend maintenant l'approbation du formateur)
-        verificationToken: null // On supprime le token pour qu'il ne soit pas réutilisable !
+        isEmailVerified: true,
+        verificationToken: null // On efface le token pour qu'il ne soit plus réutilisable
       }
     });
 
-    console.log("✅ Email vérifié avec succès pour :", user.email);
-    return res.status(200).json({ message: "Email vérifié avec succès !" });
-
+    res.status(200).json({ message: "Adresse email vérifiée avec succès !" });
   } catch (error) {
-    console.error("🔥 Erreur lors de la vérification :", error);
-    return res.status(500).json({ message: "Erreur serveur.", error: error.message });
+    res.status(500).json({ message: "Erreur serveur.", error: error.message });
   }
 };
