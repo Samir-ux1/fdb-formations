@@ -41,16 +41,21 @@ app.use('/uploads', express.static(uploadDir, {
   }
 }));
 
-// Middlewares
-app.use(cors({
-  origin: [
-    'http://localhost:5173', // Pour continuer à tester sur votre PC
-    'https://fdb-formations-4iqs-tau.vercel.app' // L'URL exacte de votre Frontend sur Vercel !
-  ],
+// Configuration CORS Dynamique pour accepter Vercel et Localhost
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Si l'origine n'existe pas (ex: Postman), ou vient de localhost, ou vient de n'importe quel site Vercel
+    if (!origin || origin.includes('localhost') || origin.includes('vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Bloqué par CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true, // Autorise l'envoi du Token
-}));
-app.use(express.json()); // Permet de lire les données JSON (formulaires)
+};
+
+app.use(cors(corsOptions));
 
 // Importation des routes
 const authRoutes = require('./src/routes/authRoutes');
