@@ -1,15 +1,12 @@
 const nodemailer = require('nodemailer');
 
-// Configuration optimisée et sécurisée pour Vercel
+// Configuration du transporteur d'email
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com', // On force l'utilisation du serveur SMTP officiel
-  port: 465,              // Port sécurisé
-  secure: true,           // Obligatoire pour le port 465
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
-  },
-  pool: false // Empêche Vercel de garder la connexion ouverte (ce qui causait le bug !)
+  }
 });
 
 // Fonction pour envoyer l'email de vérification
