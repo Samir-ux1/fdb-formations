@@ -1,37 +1,33 @@
-import { useEffect, useState, useRef } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, ArrowRight } from 'lucide-react';
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token'); 
-  
-  const [status, setStatus] = useState('loading'); 
-  const [message, setMessage] = useState('');
+  const token = searchParams.get('token');
+  const navigate = useNavigate();
 
-  // NOUVEAU : Ce "ref" sert de mémoire pour bloquer le double appel de React StrictMode
-  const hasFetched = useRef(false);
+  const [status, setStatus] = useState('loading'); // 'loading', 'success', 'error'
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     if (!token) {
       setStatus('error');
-      setMessage("Lien de vérification manquant.");
+      setMessage("Lien de vérification invalide ou expiré.");
       return;
     }
 
-    // Si on a déjà fait l'appel, on s'arrête ici !
-    if (hasFetched.current) return;
-    hasFetched.current = true;
-
     const verifyToken = async () => {
       try {
-        const response = await axios.get(`https://fdb-formations.vercel.app/api/auth/verify-email?token=${token}`);
+        // Envoie le token au backend pour valider le compte
+        await axios.post(`${import.meta.env.VITE_API_URL}/auth/verify-email`, { token });
+        
         setStatus('success');
-        setMessage(response.data.message);
+        setMessage("Votre adresse email a été vérifiée avec succès !");
       } catch (error) {
         setStatus('error');
-        setMessage(error.response?.data?.message || "Erreur de vérification.");
+        setMessage(error.response?.data?.message || "Le lien de vérification est invalide ou a expiré.");
       }
     };
 
@@ -39,46 +35,39 @@ export default function VerifyEmail() {
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex flex-col items-center justify-center font-sans">
-      <div className="bg-white p-10 rounded-sm shadow-xl border-t-4 border-[#EB0A1E] max-w-md w-full text-center">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
+      <div className="bg-white max-w-md w-full p-8 md:p-10 rounded-3xl shadow-xl border border-slate-200 text-center relative overflow-hidden">
         
-        {status === 'loading' && (
-          <div className="flex flex-col items-center">
-            <div className="w-10 h-10 border-4 border-[#EB0A1E] border-t-transparent rounded-full animate-spin mb-4"></div>
-            <h2 className="text-xl font-black text-slate-900 uppercase">Vérification en cours...</h2>
-          </div>
-        )}
+        {/* Décoration Toyota */}
+        <div className={`absolute top-0 left-0 w-full h-2 ${status === 'success' ? 'bg-emerald-500' : status === 'error' ? 'bg-[#EB0A1E]' : 'bg-[#111827]'}`}></div>
 
-        {status === 'success' && (
-          <div className="flex flex-col items-center animate-in zoom-in">
-            <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
-              <CheckCircle2 className="w-10 h-10" />
-            </div>
-            <h2 className="text-2xl font-black text-slate-900 uppercase mb-2">Email Vérifié !</h2>
-            <p className="text-slate-600 font-medium mb-8">
-              Votre adresse email a bien été confirmée. Votre compte est maintenant en attente d'approbation par votre manager.
-            </p>
-            <Link to="/login" className="w-full py-4 bg-[#111827] text-white font-black uppercase tracking-widest text-xs rounded-sm hover:bg-[#EB0A1E] transition-colors">
-              Retour à l'accueil
-            </Link>
+        <div className="flex justify-center mb-6">
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center shadow-sm">
+            {status === 'loading' && <Loader2 className="w-8 h-8 text-[#111827] animate-spin" />}
+            {status === 'success' && <CheckCircle2 className="w-8 h-8 text-emerald-500" />}
+            {status === 'error' && <XCircle className="w-8 h-8 text-[#EB0A1E]" />}
           </div>
-        )}
+        </div>
 
-        {status === 'error' && (
-          <div className="flex flex-col items-center animate-in zoom-in">
-            <div className="w-20 h-20 bg-red-100 text-[#EB0A1E] rounded-full flex items-center justify-center mb-6 shadow-sm">
-              <XCircle className="w-10 h-10" />
-            </div>
-            <h2 className="text-2xl font-black text-slate-900 uppercase mb-2">Lien invalide</h2>
-            <p className="text-slate-600 font-medium mb-8">
-              {message}
-            </p>
-            <Link to="/login" className="w-full py-4 bg-slate-200 text-slate-700 font-black uppercase tracking-widest text-xs rounded-sm hover:bg-slate-300 transition-colors">
-              Retour à l'accueil
-            </Link>
-          </div>
-        )}
+        <h2 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">
+          {status === 'loading' ? 'Vérification en cours...' : 
+           status === 'success' ? 'Email Vérifié !' : 
+           'Échec de la vérification'}
+        </h2>
+        
+        <p className="text-slate-500 font-medium mb-8">
+          {status === 'loading' ? 'Veuillez patienter pendant que nous validons votre adresse email.' : message}
+        </p>
 
+        {status !== 'loading' && (
+          <Link 
+            to="/login"
+            className="w-full py-4 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] transition-all shadow-md flex justify-center items-center gap-2 active:scale-95"
+          >
+            <span>Se connecter à mon compte</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        )}
       </div>
     </div>
   );

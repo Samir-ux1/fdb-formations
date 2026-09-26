@@ -92,35 +92,42 @@ exports.login = async (req, res) => {
   }
 };
 
-// --- VÉRIFIER L'ADRESSE EMAIL ---
+// --- VÉRIFICATION DE L'EMAIL ---
 exports.verifyEmail = async (req, res) => {
+  console.log("👉 Demande de vérification reçue pour le token :", req.body.token);
+
   try {
-    const { token } = req.query; // On récupère le token dans l'URL
+    const { token } = req.body;
 
     if (!token) {
-      return res.status(400).json({ message: "Token manquant." });
+      return res.status(400).json({ message: "Aucun token fourni." });
     }
 
-    // 1. Chercher l'utilisateur qui possède ce token exact
+    // 1. Chercher l'utilisateur qui possède ce token exact dans la BDD
     const user = await prisma.user.findFirst({
       where: { verificationToken: token }
     });
 
+    // 2. Si on ne trouve personne, c'est que le lien est faux ou a déjà été cliqué
     if (!user) {
+      console.log("❌ Token introuvable ou déjà utilisé.");
       return res.status(400).json({ message: "Lien de vérification invalide ou expiré." });
     }
 
-    // 2. Mettre à jour l'utilisateur : Email vérifié !
+    // 3. Mettre à jour l'utilisateur !
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        isEmailVerified: true,
-        verificationToken: null // On efface le token pour qu'il ne soit plus réutilisable
+        status: 'VERIFIED', // L'email est validé (il attend maintenant l'approbation du formateur)
+        verificationToken: null // On supprime le token pour qu'il ne soit pas réutilisable !
       }
     });
 
-    res.status(200).json({ message: "Adresse email vérifiée avec succès !" });
+    console.log("✅ Email vérifié avec succès pour :", user.email);
+    return res.status(200).json({ message: "Email vérifié avec succès !" });
+
   } catch (error) {
-    res.status(500).json({ message: "Erreur serveur.", error: error.message });
+    console.error("🔥 Erreur lors de la vérification :", error);
+    return res.status(500).json({ message: "Erreur serveur.", error: error.message });
   }
 };

@@ -26,19 +26,6 @@ export default function Dashboard() {
   const [keyMessage, setKeyMessage] = useState(null);
   const [learningTime, setLearningTime] = useState("0m");
 
-  // Fonction magique pour récupérer le temps d'un module précis
-  const getCourseLearningTime = (userId, courseId) => {
-    const storageKey = `time_user_${userId}_course_${courseId}`;
-    const totalSeconds = parseInt(localStorage.getItem(storageKey) || '0', 10);
-    
-    if (totalSeconds === 0) return "0m";
-    
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    
-    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-  };
-
   useEffect(() => {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
