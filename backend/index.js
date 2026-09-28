@@ -77,4 +77,28 @@ app.listen(PORT, () => {
   console.log(`✅ Serveur démarré sur le port ${PORT}`);
 });
 
+// ==========================================
+// ROUTES POUR GÉRER LES SECTEURS DYNAMIQUES
+// ==========================================
+app.get('/api/sectors', async (req, res) => {
+  try {
+    const sectors = await prisma.sector.findMany({ orderBy: { name: 'asc' } });
+    res.json(sectors);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/sectors', async (req, res) => {
+  try {
+    const newSector = await prisma.sector.create({ data: { name: req.body.name } });
+    res.json(newSector);
+  } catch (error) { res.status(400).json({ message: "Ce secteur existe peut-être déjà." }); }
+});
+
+app.delete('/api/sectors/:id', async (req, res) => {
+  try {
+    await prisma.sector.delete({ where: { id: parseInt(req.params.id) } });
+    res.json({ message: "Secteur supprimé" });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 module.exports = app;

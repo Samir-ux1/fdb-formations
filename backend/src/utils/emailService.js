@@ -1,15 +1,11 @@
 const nodemailer = require('nodemailer');
 
-// Configuration optimisée et sécurisée pour Vercel
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com', // On force l'utilisation du serveur SMTP officiel
-  port: 465,              // Port sécurisé
-  secure: true,           // Obligatoire pour le port 465
+  service: 'gmail', // Plus sûr que de taper le host manuellement
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
-  },
-  pool: false // Empêche Vercel de garder la connexion ouverte (ce qui causait le bug !)
+  }
 });
 
 // Fonction pour envoyer l'email de vérification
@@ -44,7 +40,7 @@ exports.sendVerificationEmail = async (userEmail, userName, token) => {
 // Fonction pour le rappel des 2 jours restants
 exports.sendReminderEmail = async (userEmail, userName, courseTitle) => {
   const mailOptions = {
-    from: '"Toyota Formations" <tonemail@gmail.com>',
+    from: `"Toyota Formations" <${process.env.EMAIL_USER}>`,
     to: userEmail,
     subject: '⚠️ Alerte : Plus que 2 jours pour valider votre formation !',
     html: `
