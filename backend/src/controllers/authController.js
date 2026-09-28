@@ -51,44 +51,44 @@ exports.register = async (req, res) => {
   }
 };
 
-// --- CONNEXION (LOGIN) ---
 exports.login = async (req, res) => {
+  console.log("👉 Tentative de connexion pour :", req.body.email);
+  
   try {
     const { email, password } = req.body;
 
+    // 1. Chercher l'utilisateur
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return res.status(400).json({ message: "Email ou mot de passe incorrect." });
+      console.log("❌ ERREUR : Utilisateur non trouvé dans la base.");
+      return res.status(401).json({ message: "Adresse email introuvable." });
     }
 
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      return res.status(400).json({ message: "Email ou mot de passe incorrect." });
+    // 2. Vérifier le mot de passe
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      console.log("❌ ERREUR : Mot de passe incorrect.");
+      return res.status(401).json({ message: "Mot de passe incorrect." });
     }
 
-    // 🛡️ NIVEAU 1 : L'utilisateur a-t-il vérifié son email ?
-    if (!user.isEmailVerified) {
-      return res.status(403).json({ message: "Veuillez d'abord vérifier votre adresse email en cliquant sur le lien que nous vous avons envoyé." });
+    // 3. Créer le Token (Vérifier si JWT_SECRET existe)
+    if (!process.env.JWT_SECRET) {
+      console.error("🔥 ERREUR FATALE : JWT_SECRET manquant sur Vercel !");
+      return res.status(500).json({ message: "Erreur de configuration serveur (JWT)." });
     }
 
-    // 🛡️ NIVEAU 2 : L'administrateur a-t-il approuvé le compte ?
-    if (user.status === 'PENDING') {
-      return res.status(403).json({ message: "Votre email est vérifié ! Votre compte est actuellement en cours d'approbation par le manager." });
-    }
-    if (user.status === 'REJECTED') {
-      return res.status(403).json({ message: "Votre demande d'accès a été refusée." });
-    }
-
-    // Si tout est bon, on génère le token
     const token = jwt.sign(
-      { userId: user.id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { id: user.id, role: user.role }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '7d' } // Valable 7 jours
     );
 
-    res.status(200).json({ message: "Connexion réussie !", token, user });
+    console.log("✅ Connexion réussie !");
+    return res.status(200).json({ token, user });
+
   } catch (error) {
-    res.status(500).json({ message: "Erreur serveur.", error: error.message });
+    console.error("🔥 ERREUR FATALE LORS DU LOGIN :", error);
+    return res.status(500).json({ message: "Erreur critique du serveur.", error: error.message });
   }
 };
 
