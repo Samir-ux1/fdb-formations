@@ -1,28 +1,37 @@
 const prisma = require('../config/prisma');
 
-// --- CRÉER UNE FORMATION ---
 exports.createCourse = async (req, res) => {
+  console.log("👉 Création du cours demandée :", req.body.title);
   try {
-    const { title, description, accessKey, imageUrl, passingScore, categoryId, level, timeLimitDays } = req.body; // <-- On récupère imageUrl et categoryId
-    const instructorId = req.user.userId; 
+    const { title, description, accessKey, imageUrl, categoryId, level, duration } = req.body;
 
+    // 1. On sécurise les nombres (pour éviter le crash NaN)
+    const safeCategoryId = categoryId ? parseInt(categoryId) : null;
+    const safeDuration = duration ? parseInt(duration) : 60;
+
+    // 2. On vérifie l'ID du formateur (selon comment votre middleware l'appelle : req.user.id ou req.userId)
+    const instructorId = req.user.id; // ⚠️ Modifiez par req.userId si c'est ce que vous utilisez d'habitude !
+
+    // 3. On enregistre
     const newCourse = await prisma.course.create({
       data: {
         title,
         description,
-        price: 0,
-        accessKey: accessKey || "SECRET123",
-        imageUrl: imageUrl || undefined, // <-- On l'envoie à Prisma
-        categoryId: categoryId ? parseInt(categoryId) : null,
-        level: level || 'Débutant',
-        instructorId,
-        timeLimitDays: timeLimitDays ? parseInt(timeLimitDays) : 30,
+        accessKey,
+        imageUrl: imageUrl || null,
+        categoryId: safeCategoryId,
+        level: level || "Débutant",
+        duration: safeDuration,
+        instructorId: instructorId
       }
     });
 
-    res.status(201).json({ message: "Formation créée !", course: newCourse });
+    console.log("✅ Cours créé !");
+    return res.status(201).json(newCourse);
+
   } catch (error) {
-    res.status(500).json({ message: "Erreur.", error: error.message });
+    console.error("🔥 ERREUR CRÉATION COURS :", error);
+    return res.status(500).json({ message: "Erreur serveur", error: error.message });
   }
 };
 

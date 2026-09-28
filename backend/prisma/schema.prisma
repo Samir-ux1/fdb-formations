@@ -51,6 +51,7 @@ model Course {
   passingScore Float @default(70.0)
   timeLimitDays Int? @default(30)
   level       String   @default("Débutant") // "Débutant", "Intermédiaire" ou "Avancé"
+  duration    Int      @default(60)
   
   createdAt   DateTime @default(now())
 
