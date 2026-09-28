@@ -389,7 +389,7 @@ export default function Catalog() {
                             <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
                               <Clock className="w-3.5 h-3.5 text-slate-400" />
                               <span>{course.timeLimitDays ? `${course.timeLimitDays} Jours max` : "À votre rythme"}</span>
-                            </div>
+                            </div> 
 
                             {isUnlocked ? (
                               <button onClick={() => navigate(`/courses/${course.id}`)} className="px-4 py-2.5 bg-[#111827] hover:bg-[#EB0A1E] text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-md active:scale-95">

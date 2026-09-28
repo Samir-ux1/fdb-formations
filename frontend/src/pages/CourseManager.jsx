@@ -165,7 +165,7 @@ export default function CourseManager() {
     const storageKey = `time_user_${userId}_course_${courseId}`;
     const totalSeconds = parseInt(localStorage.getItem(storageKey) || '0', 10);
     
-    if (totalSeconds === 0) return "0m";
+    if (totalSeconds === 0) return "0m"; 
     
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);

@@ -37,7 +37,7 @@ export default function Dashboard() {
     
     // On parse l'utilisateur une seule fois
     const parsedUser = JSON.parse(userData);
-    setUser(parsedUser);
+    setUser(parsedUser); 
 
     // ==========================================
     // NOUVEAU : CALCUL DU TEMPS D'APPRENTISSAGE

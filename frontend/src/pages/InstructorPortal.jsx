@@ -56,6 +56,10 @@ export default function InstructorPortal() {
   const [selectedSector, setSelectedSector] = useState('');
   const [isSectorModalOpen, setIsSectorModalOpen] = useState(false);
   
+  // NOUVEAU : Liste dynamique des secteurs
+  const [sectors, setSectors] = useState([]);
+  const [isSectorConfigModalOpen, setIsSectorConfigModalOpen] = useState(false);
+  const [newSectorName, setNewSectorName] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -68,6 +72,7 @@ export default function InstructorPortal() {
     }
     setUser(userData);
     fetchInstructorCourses(token);
+    fetchSectors(token);
   }, [navigate]);
 
   const fetchInstructorCourses = async (token) => {
@@ -276,6 +281,34 @@ export default function InstructorPortal() {
     });
   }
 
+
+  const fetchSectors = async (token) => {
+    try {
+      const res = await axios.get('https://fdb-formations.vercel.app/api/sectors', { headers: { Authorization: `Bearer ${token}` } });
+      setSectors(res.data);
+    } catch (err) { console.error("Erreur de chargement des secteurs"); }
+  };
+
+  const handleAddSector = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post('https://fdb-formations.vercel.app/api/sectors', { name: newSectorName }, { headers: { Authorization: `Bearer ${token}` } });
+      setNewSectorName('');
+      toast.success("Secteur ajouté !");
+      fetchSectors(token);
+    } catch (err) { toast.error("Erreur ou secteur déjà existant."); }
+  };
+
+  const handleDeleteSector = async (id) => {
+    if (!window.confirm("Supprimer ce secteur ?")) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`https://fdb-formations.vercel.app/api/sectors/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success("Secteur supprimé.");
+      fetchSectors(token);
+    } catch (err) { toast.error("Erreur de suppression."); }
+  };
   
   if (!user) return null;
 
@@ -536,6 +569,9 @@ export default function InstructorPortal() {
                 <div className="flex gap-3 w-full lg:w-auto">
                   <button onClick={() => setIsSectorModalOpen(true)} className="flex-1 lg:flex-none px-6 py-2.5 bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-sm hover:bg-slate-200 transition-colors border border-slate-300">
                     ⚙️ Gérer Affectations
+                  </button>
+                  <button onClick={() => setIsSectorConfigModalOpen(true)} className="flex-1 lg:flex-none px-4 py-2.5 bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-sm hover:bg-slate-200 border border-slate-300">
+                    ⚙️ Gérer Secteurs
                   </button>
                   <button onClick={handleExportCSV} className="flex-1 lg:flex-none px-6 py-2.5 bg-[#111827] text-white font-black text-[10px] uppercase tracking-widest rounded-sm hover:bg-[#EB0A1E] transition-colors flex items-center justify-center gap-2 shadow-md">
                     <Download className="w-3.5 h-3.5" /> Export Excel
@@ -995,11 +1031,8 @@ export default function InstructorPortal() {
                           className="w-full px-3 py-2 text-xs font-bold uppercase tracking-wider bg-white border border-slate-300 rounded-sm outline-none focus:border-[#EB0A1E] focus:ring-1 focus:ring-[#EB0A1E]"
                         >
                           <option value="">-- Non Assigné --</option>
-                          <option value="Casablanca">Casablanca</option>
-                          <option value="Tanger">Tanger</option>
-                          <option value="Rabat">Rabat</option>
-                          <option value="Marrakech">Marrakech</option>
-                          <option value="Agadir">Agadir</option>
+                            {sectors.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                          <option value="Autre">Autre</option>
                         </select>
                       </div>
 
@@ -1015,6 +1048,34 @@ export default function InstructorPortal() {
               </button>
             </div>
             
+          </div>
+        </div>
+      )}
+
+      {/* NOUVEAU : MODALE DE GESTION DES SECTEURS DYNAMIQUES */}
+      {isSectorConfigModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md p-6 sm:p-8 rounded-sm shadow-2xl relative flex flex-col max-h-[80vh] border-t-4 border-[#EB0A1E]">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-black text-slate-900">Secteurs (Agences)</h3>
+              <button onClick={() => setIsSectorConfigModalOpen(false)} className="text-slate-400 hover:text-slate-900 font-bold">X</button>
+            </div>
+            
+            <form onSubmit={handleAddSector} className="mb-6 flex gap-2">
+              <input type="text" value={newSectorName} onChange={e => setNewSectorName(e.target.value)} placeholder="Ajouter un secteur..." className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-sm outline-none focus:border-[#EB0A1E]" required />
+              <button type="submit" className="px-4 py-2 bg-[#111827] text-white font-bold text-xs uppercase rounded-sm hover:bg-[#EB0A1E] transition-colors">+</button>
+            </form>
+
+            <div className="overflow-y-auto custom-scrollbar border border-slate-200 rounded-sm bg-slate-50 divide-y divide-slate-100">
+              {sectors.length === 0 ? <p className="p-4 text-center text-xs font-semibold text-slate-400">Aucun secteur configuré.</p> : 
+                sectors.map(sector => (
+                  <div key={sector.id} className="flex justify-between items-center p-3 bg-white">
+                    <span className="font-bold text-sm text-slate-700">{sector.name}</span>
+                    <button onClick={() => handleDeleteSector(sector.id)} className="text-slate-400 hover:text-red-600 font-bold">🗑️</button>
+                  </div>
+                ))
+              }
+            </div>
           </div>
         </div>
       )}

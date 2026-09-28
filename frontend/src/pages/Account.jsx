@@ -35,7 +35,7 @@ export default function Account() {
 
       // On pré-remplit le formulaire avec les données existantes
       setFormData({
-        firstName: parsedUser.firstName || '',
+        firstName: parsedUser.firstName || '', 
         lastName: parsedUser.lastName || '',
         phone: parsedUser.phone || '',
         birthDate: parsedUser.birthDate || '',
