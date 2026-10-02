@@ -1,0 +1,2 @@
+ALTER TABLE "Enrollment"
+ADD COLUMN "learningTimeSeconds" INTEGER NOT NULL DEFAULT 0;

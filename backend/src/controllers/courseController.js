@@ -127,10 +127,46 @@ exports.getMyCourses = async (req, res) => {
       }
     });
 
-    const myCourses = enrollments.map(enrollment => enrollment.course);
+    const myCourses = enrollments.map(enrollment => ({
+      ...enrollment.course,
+      learningTimeSeconds: enrollment.learningTimeSeconds
+    }));
     res.status(200).json(myCourses);
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur.", error: error.message });
+  }
+};
+
+// --- ENREGISTRER LE TEMPS DE FORMATION EFFECTIVEMENT PASSÉ DANS LE LECTEUR ---
+exports.recordLearningTime = async (req, res) => {
+  try {
+    const courseId = Number.parseInt(req.params.courseId, 10);
+    const seconds = Number.parseInt(req.body.seconds, 10);
+    const userId = req.user.userId;
+
+    if (!Number.isInteger(courseId) || courseId < 1 || !Number.isInteger(seconds) || seconds < 1 || seconds > 60) {
+      return res.status(400).json({ message: "Durée de suivi invalide." });
+    }
+
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId, courseId } },
+      select: { id: true, status: true }
+    });
+
+    if (!enrollment) return res.status(404).json({ message: "Inscription introuvable." });
+    if (enrollment.status !== 'IN_PROGRESS') {
+      return res.status(400).json({ message: "Le suivi est terminé pour cette formation." });
+    }
+
+    const updatedEnrollment = await prisma.enrollment.update({
+      where: { id: enrollment.id },
+      data: { learningTimeSeconds: { increment: seconds } },
+      select: { learningTimeSeconds: true }
+    });
+
+    return res.status(200).json(updatedEnrollment);
+  } catch (error) {
+    return res.status(500).json({ message: "Impossible d'enregistrer le temps d'apprentissage." });
   }
 };
 
@@ -433,7 +469,7 @@ exports.resetStudent = async (req, res) => {
     // 1. Remettre l'inscription à zéro
     await prisma.enrollment.update({
       where: { userId_courseId: { userId: studentId, courseId } },
-      data: { status: 'IN_PROGRESS', quizScore: null, examScore: null, finalGrade: null, isValidated: false, completedAt: null }
+      data: { status: 'IN_PROGRESS', quizScore: null, examScore: null, finalGrade: null, isValidated: false, completedAt: null, learningTimeSeconds: 0 }
     });
 
     // 2. Trouver toutes les leçons de ce cours
