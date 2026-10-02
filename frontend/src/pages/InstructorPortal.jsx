@@ -324,6 +324,115 @@ export default function InstructorPortal() {
     }
   };
   
+  const renderStudentCard = (enrollment, index) => {
+    const late = isLate(enrollment);
+    const statusLabel = late
+      ? 'Hors délai'
+      : enrollment?.status === 'IN_PROGRESS'
+        ? 'En cours'
+        : enrollment?.status === 'VALIDATED'
+          ? 'Certifié'
+          : 'Échec';
+    const statusClass = late
+      ? 'bg-red-50 text-red-700'
+      : enrollment?.status === 'IN_PROGRESS'
+        ? 'bg-blue-50 text-blue-700'
+        : enrollment?.status === 'VALIDATED'
+          ? 'bg-emerald-50 text-emerald-700'
+          : 'bg-orange-50 text-orange-700';
+
+    return (
+      <article key={enrollment?.id || index} className="space-y-4 p-4 sm:p-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-xs font-black text-slate-600">
+            {enrollment?.user?.avatarUrl ? (
+              <img src={enrollment.user.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : enrollment?.user?.name?.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <h3 className="truncate font-bold text-slate-900">{enrollment?.user?.name || 'Inconnu'}</h3>
+            <p className="break-all text-xs text-slate-500">{enrollment?.user?.email}</p>
+          </div>
+        </div>
+
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
+          <div className="min-w-0">
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Secteur</dt>
+            <dd className="truncate font-semibold text-slate-700">{enrollment?.user?.sector || 'Non assigné'}</dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Formation</dt>
+            <dd className="truncate font-semibold text-slate-700">{enrollment?.courseTitle || 'Formation inconnue'}</dd>
+          </div>
+          <div>
+            <dt className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Statut</dt>
+            <dd><span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${statusClass}`}>{statusLabel}</span></dd>
+          </div>
+          <div>
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Score</dt>
+            <dd className="font-black text-slate-800">
+              {enrollment?.finalGrade !== null && enrollment?.finalGrade !== undefined ? `${enrollment.finalGrade}/20` : '—'}
+            </dd>
+          </div>
+        </dl>
+
+        {late && (
+          <button
+            type="button"
+            onClick={() => handleRemindStudent(enrollment?.user?.name)}
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-xs font-bold text-white hover:bg-[#EB0A1E] sm:w-auto"
+          >
+            <Bell className="h-4 w-4" /> Relancer
+          </button>
+        )}
+      </article>
+    );
+  };
+
+  const renderCourseCard = (course) => (
+    <article key={course.id} className="space-y-4 p-4 sm:p-5">
+      <div className="flex min-w-0 items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-[#EB0A1E]">
+          <BookOpen className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="break-words font-bold text-slate-900">{course.title}</h3>
+          <p className="mt-1 inline-flex max-w-full items-center gap-1.5 break-all rounded-md bg-slate-100 px-2 py-1 font-mono text-[11px] font-bold text-slate-600">
+            <KeyRound className="h-3 w-3 shrink-0 text-slate-400" /> {course.accessKey}
+          </p>
+        </div>
+      </div>
+
+      <dl className="grid grid-cols-3 gap-2 rounded-lg bg-slate-50 p-3 text-center">
+        <div>
+          <dt className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Chapitres</dt>
+          <dd className="mt-1 font-black text-slate-800">{course._count.lessons}</dd>
+        </div>
+        <div>
+          <dt className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Inscrits</dt>
+          <dd className="mt-1 font-black text-slate-800">{course._count.enrollments}</dd>
+        </div>
+        <div>
+          <dt className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Réussite</dt>
+          <dd className="mt-1 font-black text-slate-800">{course.successRate !== null ? `${course.successRate}%` : '—'}</dd>
+        </div>
+      </dl>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-slate-500">
+          {course.validatedCount} certifié(s) · {course.failedCount} échec(s) · {course.inProgressCount} en cours
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate(`/instructor/courses/${course.id}`)}
+          className="flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-xs font-bold text-white hover:bg-[#EB0A1E] sm:w-auto"
+        >
+          <Settings className="h-4 w-4" /> Gérer
+        </button>
+      </div>
+    </article>
+  );
+
   if (!user) return null;
 
   return (
@@ -386,8 +495,8 @@ export default function InstructorPortal() {
       <main className="md:ml-64 flex-1 pb-12 pt-16 md:pt-4">
         
         {/* En-tête mobile (caché sur desktop car sidebar) */}
-        <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-20 z-30">
-          <h2 className="text-xl font-bold">{activeTab === 'COURSES' ? 'Vos Formations' : activeTab === 'BRANCHES' ? 'Vos Branches' : 'Approbations'}</h2>
+        <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between sticky top-20 z-30">
+          <h2 className="text-base sm:text-xl font-bold">{activeTab === 'COURSES' ? 'Vos Formations' : activeTab === 'BRANCHES' ? 'Vos Filières' : 'Suivi Étudiants'}</h2>
           
           <div className="flex items-center gap-6">
             {/* --- LE SYSTÈME DE NOTIFICATION 🔔 --- */}
@@ -471,7 +580,30 @@ export default function InstructorPortal() {
           </div>
         </header>
 
-        <div className="p-8 max-w-7xl mx-auto space-y-8">
+        <nav aria-label="Navigation du portail formateur" className="md:hidden grid grid-cols-3 gap-1 border-b border-slate-200 bg-white p-2">
+          {[
+            { id: 'COURSES', label: 'Formations', Icon: BookOpen },
+            { id: 'BRANCHES', label: 'Filières', Icon: FolderKanban },
+            { id: 'STUDENTS', label: 'Suivi', Icon: Users },
+          ].map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={activeTab === id}
+              onClick={() => setActiveTab(id)}
+              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-bold transition-colors sm:flex-row sm:gap-2 sm:text-xs ${
+                activeTab === id
+                  ? 'bg-red-50 text-[#EB0A1E]'
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
           
           {/* HEADER SUPPRIMÉ POUR L'ONGLET RH ! On ne l'affiche que pour les cours et les branches */}
           {activeTab !== 'STUDENTS' && (
@@ -576,11 +708,9 @@ export default function InstructorPortal() {
                     <Filter className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <select value={sectorFilter} onChange={e => setSectorFilter(e.target.value)} className="w-full md:w-auto pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-sm text-xs font-bold uppercase tracking-wider focus:border-[#EB0A1E] outline-none appearance-none text-slate-700">
                       <option value="ALL">Tous les secteurs</option>
-                      <option value="Casablanca">Casablanca</option>
-                      <option value="Tanger">Tanger</option>
-                      <option value="Rabat">Rabat</option>
-                      <option value="Marrakech">Marrakech</option>
-                      <option value="Agadir">Agadir</option>
+                      {sectors.map((sector) => (
+                        <option key={sector.id} value={sector.name}>{sector.name}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -606,7 +736,7 @@ export default function InstructorPortal() {
 
               {/* LE GRAND TABLEAU */}
               <div className="bg-white rounded-sm shadow-sm border border-slate-200 overflow-hidden">
-                <div className="w-full max-w-full overflow-x-auto pb-2 custom-scrollbar">
+                <div className="hidden w-full max-w-full overflow-x-auto pb-2 custom-scrollbar xl:block">
                   <table className="w-full text-left whitespace-nowrap min-w-[800px]">
                     <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
                       <tr className="hover:bg-slate-50 transition-colors relative hover:z-50">
@@ -685,6 +815,14 @@ export default function InstructorPortal() {
                     </tbody>
                   </table>
                 </div>
+                <div className="divide-y divide-slate-100 xl:hidden">
+                  {filteredStudents.length === 0 ? (
+                    <div className="px-4 py-10 text-center">
+                      <Users className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                      <p className="text-sm font-bold text-slate-500">Aucun collaborateur trouvé.</p>
+                    </div>
+                  ) : filteredStudents.map(renderStudentCard)}
+                </div>
               </div>
             </div>
           )}
@@ -692,7 +830,7 @@ export default function InstructorPortal() {
           {/* --- ONGLET : COURS --- */}
           {activeTab === 'COURSES' && (
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-visible">
-              <div className="w-full max-w-full overflow-visible pb-4 custom-scrollbar">
+              <div className="hidden w-full max-w-full overflow-x-auto pb-4 custom-scrollbar xl:block">
                 <table className="w-full text-left whitespace-nowrap">
                   <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
                     <tr>
@@ -793,7 +931,15 @@ export default function InstructorPortal() {
                       ))
                     )}
                   </tbody>
-                </table>
+                  </table>
+              </div>
+              <div className="divide-y divide-slate-100 xl:hidden">
+                {courses.length === 0 ? (
+                  <div className="px-4 py-10 text-center">
+                    <BookOpen className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                    <p className="font-bold text-slate-500">Aucune formation créée pour le moment.</p>
+                  </div>
+                ) : courses.map(renderCourseCard)}
               </div>
             </div>
           )}
