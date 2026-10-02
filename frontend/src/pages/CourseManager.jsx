@@ -325,7 +325,7 @@ export default function CourseManager() {
       
       {/* EN-TÊTE PAGE */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
           <button 
             onClick={() => navigate(-1)} 
             className="text-slate-500 font-bold hover:text-[#EB0A1E] text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5 w-fit transition-colors cursor-pointer"
@@ -334,9 +334,9 @@ export default function CourseManager() {
           </button>
           
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{course.title}</h1>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight break-words">{course.title}</h1>
                 <span className="px-2.5 py-1 bg-red-50 text-[#EB0A1E] text-[10px] font-black uppercase tracking-wider rounded-lg border border-red-100">
                   {course.level || 'Standard'}
                 </span>
@@ -344,7 +344,7 @@ export default function CourseManager() {
               <p className="text-slate-500 text-sm mt-1">Administration de la formation, gestion multimédia (vidéo & PDF) et suivi des effectifs.</p>
             </div>
             
-            <div className="flex gap-2 shrink-0">
+            <div className="flex w-full sm:w-auto gap-2 shrink-0">
               <button 
                 id="course-settings-button"
                 onClick={() => {
@@ -360,14 +360,14 @@ export default function CourseManager() {
                   });
                   setIsEditingCourse(true);
                 }}
-                className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 flex items-center gap-2 transition-colors cursor-pointer"
+                className="flex-1 sm:flex-none justify-center px-3 sm:px-4 py-2.5 bg-slate-100 text-slate-700 text-[10px] sm:text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 flex items-center gap-2 transition-colors cursor-pointer"
               >
                 <Settings className="w-4 h-4" /> Paramètres
               </button>
               <button 
                 id="course-delete-button"
                 onClick={handleDeleteCourse} 
-                className="px-4 py-2 bg-red-50 text-[#EB0A1E] text-xs font-black uppercase tracking-wider rounded-xl hover:bg-red-100 flex items-center gap-2 transition-colors cursor-pointer"
+                className="flex-1 sm:flex-none justify-center px-3 sm:px-4 py-2.5 bg-red-50 text-[#EB0A1E] text-[10px] sm:text-xs font-black uppercase tracking-wider rounded-xl hover:bg-red-100 flex items-center gap-2 transition-colors cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" /> Supprimer
               </button>
@@ -376,8 +376,8 @@ export default function CourseManager() {
         </div>
         
         {/* TABS (ONGLETS) */}
-        <div className="max-w-7xl mx-auto px-6 mt-4">
-          <div className="flex gap-6 border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 mt-4">
+          <div className="flex gap-5 sm:gap-6 border-b border-slate-200 overflow-x-auto whitespace-nowrap">
             <button 
               id="tab-content-button"
               onClick={() => setActiveTab('CONTENT')}
@@ -406,14 +406,14 @@ export default function CourseManager() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-5 sm:py-8">
         
         {/* --- ONGLET 1 : CONTENU DU COURS --- */}
         {activeTab === 'CONTENT' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             
             {/* --- COLONNE GAUCHE : FORMULAIRE LEÇON AVEC SUPPORT MULTI-RESSOURCES --- */}
-            <div className="lg:col-span-5 bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-200 h-fit sticky top-24">
+            <div className="lg:col-span-5 bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-200 h-fit">
               
               <div className="flex items-center justify-between gap-3 mb-6">
                 <div className="flex items-center gap-3">
@@ -549,8 +549,8 @@ export default function CourseManager() {
                   />
                 </div>
 
-                <div className="flex gap-4">
-                  <div className="w-1/4">
+                <div className="grid grid-cols-4 gap-2 sm:gap-4">
+                  <div className="col-span-1">
                     <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">Ordre</label>
                     <input 
                       id="lesson-order-input"
@@ -562,7 +562,7 @@ export default function CourseManager() {
                       required 
                     />
                   </div>
-                  <div className="w-1/4" title="0 = Toutes les questions">
+                  <div className="col-span-1" title="0 = Toutes les questions">
                     <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5 line-clamp-1">Nb. QCM</label>
                     <input 
                       id="lesson-quizcount-input"
@@ -574,7 +574,7 @@ export default function CourseManager() {
                       required 
                     />
                   </div>
-                  <div className="w-2/4 flex items-end">
+                  <div className="col-span-2 flex items-end">
                     <button 
                       id="lesson-submit-button"
                       type="submit" 
@@ -723,7 +723,7 @@ export default function CourseManager() {
         {/* --- ONGLET 2: EXAMEN FINAL --- */}
         {activeTab === 'EXAM' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-5 bg-[#111827] p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-800 h-fit text-white sticky top-24">
+            <div className="lg:col-span-5 bg-[#111827] p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-800 h-fit text-white">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-slate-800 text-white rounded-xl flex items-center justify-center">
                   <Target className="w-5 h-5" />
@@ -805,7 +805,7 @@ export default function CourseManager() {
             </div>
             
             <div className="w-full max-w-full overflow-x-auto pb-4 custom-scrollbar">
-              <table className="w-full text-left whitespace-nowrap">
+              <table className="min-w-[850px] w-full text-left whitespace-nowrap">
                 <thead className="bg-white border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
                   <tr>
                     <th className="px-6 py-4">Collaborateur</th>
@@ -830,13 +830,15 @@ export default function CourseManager() {
                         onClick={() => setSelectedStudent(student)} 
                         className="hover:bg-slate-50 transition-colors cursor-pointer group"
                       >
-                        <td className="px-6 py-4 flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-black overflow-hidden shadow-sm">
-                            {student.user?.avatarUrl ? <img src={student.user.avatarUrl} className="w-full h-full object-cover" alt="avatar"/> : student.user?.name?.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-900">{student.user?.name}</p>
-                            <p className="text-xs text-slate-500">{student.user?.email || 'Pas d\'email'}</p>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-black overflow-hidden shadow-sm shrink-0">
+                              {student.user?.avatarUrl ? <img src={student.user.avatarUrl} className="w-full h-full object-cover" alt="avatar"/> : student.user?.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-900">{student.user?.name}</p>
+                              <p className="text-xs text-slate-500">{student.user?.email || 'Pas d\'email'}</p>
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -1042,9 +1044,9 @@ export default function CourseManager() {
                 <input type="url" value={editCourseData.imageUrl} onChange={e => setEditCourseData({...editCourseData, imageUrl: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm transition-all" />
               </div>
               
-              <div className="flex gap-3 pt-4 border-t border-slate-100 mt-2">
-                <button type="button" onClick={() => setIsEditingCourse(false)} className="w-1/3 py-3.5 bg-slate-100 text-slate-600 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 transition-colors cursor-pointer">Annuler</button>
-                <button type="submit" className="w-2/3 py-3.5 bg-[#EB0A1E] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#BD0014] shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer">
+              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-slate-100 mt-2">
+                <button type="button" onClick={() => setIsEditingCourse(false)} className="w-full sm:w-1/3 py-3.5 bg-slate-100 text-slate-600 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 transition-colors cursor-pointer">Annuler</button>
+                <button type="submit" className="w-full sm:w-2/3 py-3.5 bg-[#EB0A1E] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#BD0014] shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer">
                   <CheckCircle2 className="w-4 h-4" /> Sauvegarder
                 </button>
               </div>
@@ -1140,16 +1142,16 @@ export default function CourseManager() {
             </div>
 
             {/* Actions Administratives (Forcer le statut) */}
-            <div className="p-6 sm:p-8 border-t border-slate-100 bg-slate-50 flex gap-4">
+            <div className="p-4 sm:p-8 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row gap-3 sm:gap-4">
               <button 
                 onClick={() => handleOverrideStatus(selectedStudent.user?.id, 'FAILED')}
-                className="w-1/2 py-3.5 bg-white border-2 border-slate-200 text-slate-700 text-xs font-black uppercase tracking-wider rounded-xl hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-1/2 py-3.5 bg-white border-2 border-slate-200 text-slate-700 text-xs font-black uppercase tracking-wider rounded-xl hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <UserX className="w-4 h-4" /> Non Valider
               </button>
               <button 
                 onClick={() => handleOverrideStatus(selectedStudent.user?.id, 'VALIDATED')}
-                className="w-1/2 py-3.5 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-emerald-600 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-1/2 py-3.5 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-emerald-600 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <UserCheck className="w-4 h-4" /> Forcer Validation
               </button>
