@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import RedeemModal from '../components/RedeemModal';
 import { 
   ArrowRight, 
   CheckCircle2, 
@@ -110,11 +109,11 @@ export default function Home() {
     <div className="w-full bg-slate-50 min-h-screen font-sans text-slate-900 animate-in fade-in duration-300 pb-20">
       
       {/* 1. HERO SECTION (Toyota Material Handling Brand Style) */}
-      <section className="p-4 md:p-8 max-w-7xl mx-auto pt-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <section className="p-3 sm:p-4 md:p-8 max-w-7xl mx-auto pt-5 sm:pt-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8">
           
           {/* Main Hero Card (8 cols) */}
-          <div className="lg:col-span-8 bg-white p-6 sm:p-10 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-center">
+          <div className="lg:col-span-8 bg-white p-5 sm:p-10 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-center">
             <div className="relative z-10">
               <div className="inline-block px-3 py-1 bg-red-50 text-[#EB0A1E] font-black text-[10px] rounded-full uppercase tracking-wider mb-4 border border-red-100">
                 Toyota Material Handling Academy
@@ -131,10 +130,10 @@ export default function Home() {
                 Développez vos compétences en manutention, sécurité, maintenance et technologies Toyota pour une exploitation plus performante des équipements.
               </p>
 
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
                 <button
                   onClick={() => navigate(user ? '/dashboard' : '/login')}
-                  className="px-6 py-3.5 bg-[#EB0A1E] text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md hover:bg-[#BD0014] transition-all flex items-center gap-2 active:scale-95"
+                  className="w-full sm:w-auto justify-center px-6 py-3.5 bg-[#EB0A1E] text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md hover:bg-[#BD0014] transition-all flex items-center gap-2 active:scale-95"
                 >
                   <span>{user ? "Reprendre la formation" : "Se Connecter"}</span>
                   <ArrowRight className="w-4 h-4" />
@@ -143,7 +142,7 @@ export default function Home() {
                 {user?.role === 'INSTRUCTOR' && (
                   <button
                     onClick={() => navigate('/instructor')}
-                    className="px-5 py-3.5 bg-[#111827] text-white font-black text-xs uppercase tracking-wider rounded-xl hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-sm active:scale-95"
+                    className="w-full sm:w-auto justify-center px-5 py-3.5 bg-[#111827] text-white font-black text-xs uppercase tracking-wider rounded-xl hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-sm active:scale-95"
                   >
                     <Settings className="w-4 h-4 text-[#EB0A1E]" />
                     <span>Portail Formateur</span>
@@ -151,7 +150,7 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="pt-6 mt-8 border-t border-slate-100 flex items-center gap-6 text-xs text-slate-500 font-semibold">
+              <div className="pt-5 sm:pt-6 mt-6 sm:mt-8 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 text-xs text-slate-500 font-semibold">
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span>Cours pratiques et théoriques</span>
@@ -165,7 +164,7 @@ export default function Home() {
           </div>
 
           {/* Right Hero Highlights (4 cols) */}
-          <div className="lg:col-span-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+          <div className="lg:col-span-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3 sm:gap-4">
             
             {/* Metric 1: Formations & Accréditations */}
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
@@ -199,7 +198,7 @@ export default function Home() {
                 )}
               </div>
               <div>
-                <h3 className="text-xl font-black text-white">{user ? user.name : "Visiteur"}</h3>
+                <h3 className="text-xl font-black text-white break-words">{user ? user.name : "Visiteur"}</h3>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {user ? `${unlockedCount} formation(s) en cours` : "Connectez-vous pour suivre votre progression."}
                 </p>
@@ -218,7 +217,7 @@ export default function Home() {
       </section>
 
       {/* 2. THREE FEATURE HIGHLIGHTS */}
-      <section className="px-4 md:px-8 max-w-7xl mx-auto py-8">
+      <section className="px-3 sm:px-4 md:px-8 max-w-7xl mx-auto py-6 sm:py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:border-red-200 transition-colors">
             <div className="w-12 h-12 rounded-2xl bg-red-50 text-[#EB0A1E] flex items-center justify-center mb-4 font-black">
@@ -253,7 +252,7 @@ export default function Home() {
       </section>
 
       {/* 3. FEATURED COURSES GRID */}
-      <section className="p-4 md:px-8 max-w-7xl mx-auto py-8">
+      <section className="p-3 sm:p-4 md:px-8 max-w-7xl mx-auto py-6 sm:py-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8">
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-[#EB0A1E]">
@@ -300,7 +299,7 @@ export default function Home() {
                   </p>
                 </div>
 
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
                     <span>{course.timeLimitDays ? `${course.timeLimitDays} Jours max` : "À votre rythme"}</span>
@@ -308,7 +307,7 @@ export default function Home() {
 
                   <button
                     onClick={() => navigate('/catalog')}
-                    className="px-4 py-2 bg-red-50 hover:bg-red-100 text-[#EB0A1E] text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
+                    className="w-full sm:w-auto justify-center px-4 py-2.5 bg-red-50 hover:bg-red-100 text-[#EB0A1E] text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
                   >
                     <Play className="w-3.5 h-3.5" />
                     <span>Découvrir</span>
@@ -317,7 +316,7 @@ export default function Home() {
               </div>
             </div>
           )) : (
-            <div className="col-span-3 text-center py-10 text-slate-500">
+            <div className="col-span-1 md:col-span-3 text-center py-10 text-slate-500">
               Chargement des formations recommandées...
             </div>
           )}
@@ -325,8 +324,8 @@ export default function Home() {
       </section>
 
       {/* 4. REDEMPTION BANNER */}
-      <section className="p-4 md:px-8 max-w-7xl mx-auto py-8">
-        <div className="bg-[#111827] text-white rounded-3xl p-8 sm:p-12 text-center relative overflow-hidden space-y-4 shadow-xl">
+      <section className="p-3 sm:p-4 md:px-8 max-w-7xl mx-auto py-6 sm:py-8">
+        <div className="bg-[#111827] text-white rounded-3xl p-6 sm:p-12 text-center relative overflow-hidden space-y-4 shadow-xl">
           {/* Design elements */}
           <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-red-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
           
@@ -340,7 +339,7 @@ export default function Home() {
             </p>
             <button
               onClick={() => navigate('?modal=redeem')}
-              className="px-8 py-4 bg-[#EB0A1E] hover:bg-[#BD0014] text-white text-sm font-black uppercase tracking-wider rounded-xl shadow-lg shadow-red-900/50 transition-all active:scale-95 hover:-translate-y-1"
+              className="w-full sm:w-auto px-5 sm:px-8 py-4 bg-[#EB0A1E] hover:bg-[#BD0014] text-white text-xs sm:text-sm font-black uppercase tracking-wider rounded-xl shadow-lg shadow-red-900/50 transition-all active:scale-95 hover:-translate-y-1"
             >
               Accéder à l'activation par clé
             </button>
