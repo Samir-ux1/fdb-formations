@@ -283,12 +283,12 @@ export default function CoursePlayer() {
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col font-sans text-slate-800 pb-20">
       
-      <header className="bg-white border-b border-slate-200 px-6 h-16 flex items-center justify-between shrink-0 sticky top-0 z-50 shadow-sm">
-        <div className="flex items-center gap-4">
+      <header className="bg-white border-b border-slate-200 px-3 sm:px-6 min-h-16 flex items-center justify-between gap-3 shrink-0 sticky top-0 z-50 shadow-sm">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <Link to="/dashboard" className="w-10 h-10 flex items-center justify-center bg-slate-100 text-slate-600 rounded-sm hover:bg-slate-200 transition-colors font-bold">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <h1 className="font-bold text-lg line-clamp-1 border-l-2 border-[#EB0A1E] pl-4 uppercase tracking-tight">{course.title}</h1>
+          <h1 className="font-bold text-sm sm:text-lg line-clamp-1 border-l-2 border-[#EB0A1E] pl-2 sm:pl-4 uppercase tracking-tight">{course.title}</h1>
         </div>
         <div className="hidden md:flex items-center gap-4">
           {deadlineDate && !validationResult && <span className="text-xs font-bold text-[#EB0A1E] px-3 py-1 bg-red-50 border border-red-100 uppercase tracking-widest rounded-sm">⏳ Avant le {deadlineDate}</span>}
@@ -296,7 +296,7 @@ export default function CoursePlayer() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8 items-start">
         
         <div className="lg:col-span-8 space-y-6">
           
@@ -355,7 +355,7 @@ export default function CoursePlayer() {
 
               {course.examQuestions && course.examQuestions.length > 0 && (
                 <div className="mt-8 pt-8 border-t border-slate-100 flex justify-end">
-                  <button onClick={handleSubmitExam} className="px-8 py-4 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] shadow-md transition-all active:scale-95 flex items-center gap-2">
+                  <button onClick={handleSubmitExam} className="w-full sm:w-auto justify-center px-8 py-4 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] shadow-md transition-all active:scale-95 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4" /> Soumettre l'Évaluation
                   </button>
                 </div>
@@ -366,12 +366,12 @@ export default function CoursePlayer() {
             <>
               {/* --- SÉLECTEUR D'ONGLETS VIDÉO / PDF (si la leçon a les deux) --- */}
 {currentLesson?.videoUrl && currentLesson?.pdfUrl && (
-  <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-sm mb-4">
-    <div className="flex gap-2">
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-white px-3 sm:px-4 py-2.5 rounded-2xl border border-slate-200 shadow-sm mb-4">
+    <div className="grid grid-cols-2 gap-2">
       <button
         type="button"
         onClick={() => setActiveMediaTab('VIDEO')}
-        className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+        className={`justify-center px-2 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer ${
           activeMediaTab === 'VIDEO'
             ? 'bg-[#111827] text-white shadow-sm'
             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -383,7 +383,7 @@ export default function CoursePlayer() {
       <button
         type="button"
         onClick={() => setActiveMediaTab('PDF')}
-        className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+        className={`justify-center px-2 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer ${
           activeMediaTab === 'PDF'
             ? 'bg-[#111827] text-white shadow-sm'
             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -573,11 +573,11 @@ export default function CoursePlayer() {
                 )}
 
                 {/* BOUTONS PRÉCÉDENT / SUIVANT */}
-                <div className="flex items-center justify-between pt-6 mt-8 border-t border-slate-100">
-                  <button onClick={() => setCurrentLesson(prevLesson)} disabled={!prevLesson} className={`px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 ${prevLesson ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-transparent text-slate-300 cursor-not-allowed'}`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-6 mt-8 border-t border-slate-100">
+                  <button onClick={() => setCurrentLesson(prevLesson)} disabled={!prevLesson} className={`w-full sm:w-auto justify-center px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 ${prevLesson ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-transparent text-slate-300 cursor-not-allowed'}`}>
                     <ArrowLeft className="w-4 h-4" /> Précédent
                   </button>
-                  <button onClick={() => setCurrentLesson(nextLesson)} disabled={!nextLesson || !isCompleted} className={`px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 ${(nextLesson && isCompleted) ? 'bg-red-50 text-[#EB0A1E] hover:bg-red-100' : 'bg-transparent text-slate-300 cursor-not-allowed'}`}>
+                  <button onClick={() => setCurrentLesson(nextLesson)} disabled={!nextLesson || !isCompleted} className={`w-full sm:w-auto justify-center px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 ${(nextLesson && isCompleted) ? 'bg-red-50 text-[#EB0A1E] hover:bg-red-100' : 'bg-transparent text-slate-300 cursor-not-allowed'}`}>
                     Suivant <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -587,7 +587,7 @@ export default function CoursePlayer() {
         </div>
 
         {/* SOMMAIRE DES LEÇONS (Sidebar Droite) */}
-        <aside className="lg:col-span-4 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden sticky top-24">
+        <aside className="lg:col-span-4 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden lg:sticky lg:top-24">
           <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
             <div>
               <h3 className="font-bold text-lg uppercase tracking-tight">Contenu du cours</h3>

@@ -4,7 +4,6 @@ import { Toaster } from 'react-hot-toast';
 import RedeemModal from '../components/RedeemModal';
 // Si la page est blanche, c'est probablement cette ligne qui pose problème !
 import { 
-  Menu, 
   KeyRound, 
   GraduationCap, 
   Layers, 
@@ -85,7 +84,7 @@ export default function Layout() {
           </div>
 
           {/* CENTRE : Liens (Desktop) */}
-          <nav className="hidden md:flex items-center gap-8 text-xs font-bold uppercase tracking-wider text-slate-500">
+          <nav className="hidden lg:flex items-center gap-5 xl:gap-8 text-xs font-bold uppercase tracking-wider text-slate-500">
             <Link to="/catalog" className={`transition-colors flex items-center gap-1.5 ${isActive('/catalog') ? 'text-[#EB0A1E] font-black' : 'hover:text-slate-900'}`}>
               <Layers className="w-4 h-4" />
               <span>Catalogue</span>
@@ -193,9 +192,47 @@ export default function Layout() {
       </header>
 
       {/* CONTENU DE LA PAGE */}
-      <div className="relative">
+      <div className="relative pb-24 lg:pb-0">
         <Outlet />
       </div>
+
+      {/* Navigation principale mobile */}
+      <nav
+        aria-label="Navigation principale"
+        className="fixed inset-x-0 bottom-0 z-[60] border-t border-slate-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"
+        style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+      >
+        <div
+          className="mx-auto grid max-w-lg gap-1 px-2 pt-2"
+          style={{ gridTemplateColumns: `repeat(${user ? (user.role === 'INSTRUCTOR' || lastCourseId ? 5 : 4) : 3}, minmax(0, 1fr))` }}
+        >
+          {[
+            { to: '/', label: 'Accueil', Icon: HomeIcon, active: location.pathname === '/' },
+            { to: '/catalog', label: 'Catalogue', Icon: Layers, active: location.pathname === '/catalog' },
+            user
+              ? { to: '/dashboard', label: 'Tableau', Icon: GraduationCap, active: location.pathname === '/dashboard' }
+              : { to: '/login', label: 'Connexion', Icon: GraduationCap, active: location.pathname === '/login' },
+            ...(user?.role === 'INSTRUCTOR'
+              ? [{ to: '/instructor', label: 'Formateur', Icon: Settings, active: location.pathname.startsWith('/instructor') }]
+              : lastCourseId
+                ? [{ to: `/courses/${lastCourseId}`, label: 'Formation', Icon: PlaySquare, active: location.pathname.startsWith('/courses/') }]
+                : []),
+            ...(user ? [{ to: '/account', label: 'Compte', Icon: UserRound, active: location.pathname === '/account' }] : []),
+          ].map(({ to, label, Icon, active }) => (
+            <Link
+              key={label}
+              to={to}
+              aria-current={active ? 'page' : undefined}
+              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[9px] font-bold transition-colors ${
+                active ? 'bg-red-50 text-[#EB0A1E]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <Icon className="h-5 w-5" aria-hidden="true" />
+              <span className="max-w-full truncate">{label}</span>
+            </Link>
+          ))}
+        </div>
+      </nav>
 
       {/* ========================================= */}
       {/* FOOTER OFFICIEL TOYOTA MATERIAL HANDLING */}

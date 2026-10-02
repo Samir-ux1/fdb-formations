@@ -139,9 +139,9 @@ export default function Account() {
   const currentAvatar = previewAvatar || formData.avatarUrl || user.avatarUrl;
 
   return (
-    <div className="p-4 sm:p-8 max-w-5xl mx-auto font-sans text-slate-800 pb-20">
+    <div className="p-3 sm:p-8 max-w-5xl mx-auto font-sans text-slate-800 pb-20">
       
-      <div className="mb-10">
+      <div className="mb-6 sm:mb-10">
         <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Mon Compte</h1>
         <p className="text-slate-500 mt-2">Gérez vos informations personnelles et votre photo de profil.</p>
       </div>
@@ -150,7 +150,7 @@ export default function Account() {
         
         {/* CARTE DE PROFIL (À gauche) */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm text-center flex flex-col items-center sticky top-24">
+          <div className="bg-white rounded-3xl p-5 sm:p-8 border border-slate-200 shadow-sm text-center flex flex-col items-center">
             
             {/* ZONE AVATAR AVEC BADGE CAMÉRA CLIQUABLE */}
             <div className="relative group mb-4">
@@ -267,11 +267,11 @@ export default function Account() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 sm:ml-auto">
+                  <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-4 py-2.5 bg-white border border-slate-300 hover:border-blue-500 hover:text-blue-600 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                      className="flex-1 sm:flex-none justify-center px-3 sm:px-4 py-2.5 bg-white border border-slate-300 hover:border-blue-500 hover:text-blue-600 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 cursor-pointer"
                     >
                       <Upload className="w-4 h-4" /> Parcourir l'ordinateur...
                     </button>

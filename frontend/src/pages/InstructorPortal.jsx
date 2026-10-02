@@ -439,7 +439,7 @@ export default function InstructorPortal() {
     <div className="min-h-screen flex bg-slate-50 font-sans text-slate-800">
       
       {/* SIDEBAR GAUCHE */}
-      <aside className="hidden md:flex flex-col fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-[#111827] text-white py-6 z-30 border-r border-slate-800 shadow-xl">
+      <aside className="hidden lg:flex flex-col fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-[#111827] text-white py-6 z-30 border-r border-slate-800 shadow-xl">
         <div className="px-6 mb-8">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Administration</span>
           <h2 className="text-lg font-black text-white mt-1 leading-tight">Portail<br/><span className="text-[#EB0A1E]">Formateur</span></h2>
@@ -492,7 +492,7 @@ export default function InstructorPortal() {
       </aside>
 
       {/* CONTENU PRINCIPAL */}
-      <main className="md:ml-64 flex-1 pb-12 pt-16 md:pt-4">
+      <main className="lg:ml-64 flex-1 pb-12 pt-16 lg:pt-4">
         
         {/* En-tête mobile (caché sur desktop car sidebar) */}
         <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between sticky top-20 z-30">
@@ -580,7 +580,7 @@ export default function InstructorPortal() {
           </div>
         </header>
 
-        <nav aria-label="Navigation du portail formateur" className="md:hidden grid grid-cols-3 gap-1 border-b border-slate-200 bg-white p-2">
+        <nav aria-label="Navigation du portail formateur" className="lg:hidden grid grid-cols-3 gap-1 border-b border-slate-200 bg-white p-2">
           {[
             { id: 'COURSES', label: 'Formations', Icon: BookOpen },
             { id: 'BRANCHES', label: 'Filières', Icon: FolderKanban },
