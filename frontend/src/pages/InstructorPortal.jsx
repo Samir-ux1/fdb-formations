@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { API_URL } from '../config/api';
 import { 
   ArrowLeft, 
   BookOpen, 
@@ -77,13 +78,13 @@ export default function InstructorPortal() {
 
   const fetchInstructorCourses = async (token) => {
     try {
-      const response = await axios.get('https://fdb-formations.vercel.app/api/courses/instructor-courses', {
+      const response = await axios.get(`${API_URL}/courses/instructor-courses`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const catRes = await axios.get('https://fdb-formations.vercel.app/api/categories');
+      const catRes = await axios.get(`${API_URL}/categories`);
       
-      const pendingRes = await axios.get('https://fdb-formations.vercel.app/api/users/pending', { headers: { Authorization: `Bearer ${token}` } });
-      const studentsRes = await axios.get('https://fdb-formations.vercel.app/api/courses/instructor-students', { headers: { Authorization: `Bearer ${token}` } });
+      const pendingRes = await axios.get(`${API_URL}/users/pending`, { headers: { Authorization: `Bearer ${token}` } });
+      const studentsRes = await axios.get(`${API_URL}/courses/instructor-students`, { headers: { Authorization: `Bearer ${token}` } });
       setCourses(response.data);
       setCategories(catRes.data);
       setPendingUsers(pendingRes.data);
@@ -92,7 +93,7 @@ export default function InstructorPortal() {
       // --- NOUVEAU : RÉCUPÉRER TOUS LES ÉTUDIANTS ---
       // On boucle sur chaque cours pour récupérer ses étudiants via votre API existante
       const studentsPromises = response.data.map(course => 
-        axios.get(`https://fdb-formations.vercel.app/api/courses/${course.id}/students`, {
+        axios.get(`${API_URL}/courses/${course.id}/students`, {
           headers: { Authorization: `Bearer ${token}` }
         }).then(res => 
           // On ajoute le nom du cours à chaque étudiant pour l'affichage
@@ -115,16 +116,21 @@ export default function InstructorPortal() {
   };
 
   const handleReviewUser = async (userId, status) => {
+    if (status === 'APPROVED' && !selectedSector) {
+      toast.error("Choisissez un secteur avant d'approuver le technicien.");
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
-      await axios.put('https://fdb-formations.vercel.app/api/users/review', { userId, status, sector: status === 'APPROVED' ? selectedSector : null }, {
+      await axios.put(`${API_URL}/users/review`, { userId, status, sector: status === 'APPROVED' ? selectedSector : null }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setApprovingUserId(null);
       setSelectedSector('');
       fetchInstructorCourses(token); // Met à jour le compteur de notifications instantanément !
     } catch (error) {
-      toast.success("Erreur lors de la validation.");
+      toast.error(error.response?.data?.message || "Erreur lors de la validation.");
     }
   };
 
@@ -134,12 +140,12 @@ export default function InstructorPortal() {
       const token = localStorage.getItem('token');
       
       if (editingCategory) {
-        await axios.put(`https://fdb-formations.vercel.app/api/categories/${editingCategory.id}`, categoryData, { 
+        await axios.put(`${API_URL}/categories/${editingCategory.id}`, categoryData, { 
           headers: { Authorization: `Bearer ${token}` } 
         });
         toast.success("Filière modifiée avec succès !");
       } else {
-        await axios.post('https://fdb-formations.vercel.app/api/categories', categoryData, { 
+        await axios.post(`${API_URL}/categories`, categoryData, { 
           headers: { Authorization: `Bearer ${token}` } 
         });
         toast.success("Filière créée avec succès !");
@@ -159,7 +165,7 @@ export default function InstructorPortal() {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`https://fdb-formations.vercel.app/api/categories/${categoryId}`, {
+      await axios.delete(`${API_URL}/categories/${categoryId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchInstructorCourses(token); 
@@ -172,7 +178,7 @@ export default function InstructorPortal() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post('https://fdb-formations.vercel.app/api/courses', newCourse, {
+      await axios.post(`${API_URL}/courses`, newCourse, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setIsCreating(false);
@@ -259,7 +265,7 @@ export default function InstructorPortal() {
   const handleUpdateSector = async (userId, newSector) => {
     try {
       const activeToken = localStorage.getItem('token');
-      await axios.put(`https://fdb-formations.vercel.app/api/users/${userId}/sector`, { sector: newSector }, {
+      await axios.put(`${API_URL}/users/${userId}/sector`, { sector: newSector }, {
         headers: { Authorization: `Bearer ${activeToken}` }
       });
       fetchInstructorCourses(activeToken); 
@@ -284,7 +290,7 @@ export default function InstructorPortal() {
 
   const fetchSectors = async (token) => {
     try {
-      const res = await axios.get('https://fdb-formations.vercel.app/api/sectors', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.get(`${API_URL}/sectors`, { headers: { Authorization: `Bearer ${token}` } });
       setSectors(res.data);
     } catch (err) { console.error("Erreur de chargement des secteurs"); }
   };
@@ -293,7 +299,7 @@ export default function InstructorPortal() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post('https://fdb-formations.vercel.app/api/sectors', { name: newSectorName }, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.post(`${API_URL}/sectors`, { name: newSectorName }, { headers: { Authorization: `Bearer ${token}` } });
       setNewSectorName('');
       toast.success("Secteur ajouté !");
       fetchSectors(token);
@@ -308,7 +314,7 @@ export default function InstructorPortal() {
     if (!window.confirm("Supprimer ce secteur ?")) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`https://fdb-formations.vercel.app/api/sectors/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.delete(`${API_URL}/sectors/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       toast.success("Secteur supprimé.");
       fetchSectors(token);
     } catch (err) { 
@@ -419,25 +425,38 @@ export default function InstructorPortal() {
                               <select 
                                 value={selectedSector} 
                                 onChange={(e) => setSelectedSector(e.target.value)}
+                                disabled={sectors.length === 0}
                                 className="w-full p-1.5 text-xs border border-slate-300 rounded-sm outline-none focus:border-red-600"
                               >
-                                <option value="">-- Choisir --</option>
-                                <option value="Casablanca">Casablanca</option>
-                                <option value="Tanger">Tanger</option>
-                                <option value="Rabat">Rabat</option>
-                                <option value="Marrakech">Marrakech</option>
-                                <option value="Agadir">Agadir</option>
-                                <option value="Autre">Autre région</option>
+                                <option value="">-- Choisir un secteur --</option>
+                                {sectors.map((sector) => (
+                                  <option key={sector.id} value={sector.name}>{sector.name}</option>
+                                ))}
                               </select>
+                              {sectors.length === 0 && (
+                                <div className="text-[11px] text-slate-600">
+                                  <p className="mb-1">Aucun secteur n'est disponible.</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setShowNotifications(false);
+                                      setIsSectorModalOpen(true);
+                                    }}
+                                    className="font-bold text-[#EB0A1E] underline"
+                                  >
+                                    Créer un secteur
+                                  </button>
+                                </div>
+                              )}
                               <div className="flex gap-2 mt-1">
-                                <button onClick={() => handleReviewUser(u.id, 'APPROVED')} disabled={!selectedSector} className="flex-1 bg-green-600 text-white text-[10px] py-1.5 rounded-sm font-bold hover:bg-green-700 uppercase disabled:opacity-50">Valider</button>
-                                <button onClick={() => setApprovingUserId(null)} className="flex-1 bg-slate-200 text-slate-600 text-[10px] py-1.5 rounded-sm font-bold hover:bg-slate-300 uppercase">Annuler</button>
+                                <button onClick={() => handleReviewUser(u.id, 'APPROVED')} disabled={!selectedSector || sectors.length === 0} className="flex-1 bg-green-600 text-white text-[10px] py-1.5 rounded-sm font-bold hover:bg-green-700 uppercase disabled:opacity-50">Valider</button>
+                                <button onClick={() => { setApprovingUserId(null); setSelectedSector(''); }} className="flex-1 bg-slate-200 text-slate-600 text-[10px] py-1.5 rounded-sm font-bold hover:bg-slate-300 uppercase">Annuler</button>
                               </div>
                             </div>
                           ) : (
                             /* BOUTONS PAR DÉFAUT */
                             <div className="flex gap-2">
-                              <button onClick={() => setApprovingUserId(u.id)} className="flex-1 bg-green-50 text-green-700 border border-green-200 text-xs py-1.5 rounded-sm font-bold hover:bg-green-100 transition-colors">Approuver</button>
+                              <button onClick={() => { setSelectedSector(''); setApprovingUserId(u.id); }} className="flex-1 bg-green-50 text-green-700 border border-green-200 text-xs py-1.5 rounded-sm font-bold hover:bg-green-100 transition-colors">Approuver</button>
                               <button onClick={() => handleReviewUser(u.id, 'REJECTED')} className="flex-1 bg-red-50 text-red-700 border border-red-200 text-xs py-1.5 rounded-sm font-bold hover:bg-red-100 transition-colors">Refuser</button>
                             </div>
                           )}
