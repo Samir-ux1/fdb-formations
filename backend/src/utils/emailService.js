@@ -10,9 +10,10 @@ const transporter = nodemailer.createTransport({
 
 // Fonction pour envoyer l'email de vérification
 exports.sendVerificationEmail = async (userEmail, userName, token) => {
-  
-  // 1. CORRECTION DU LIEN : On met la VRAIE adresse de votre plateforme en ligne
-  const verifyUrl = `https://fdb-formations-4iqs-tau.vercel.app/verify-email?token=${token}`;
+  const frontendUrl = process.env.FRONTEND_URL || (process.env.VERCEL
+    ? 'https://fdb-formations-4iqs-tau.vercel.app'
+    : 'http://localhost:5173');
+  const verifyUrl = `${frontendUrl.replace(/\/+$/, '')}/verify-email?token=${encodeURIComponent(token)}`;
   
   const mailOptions = {
     // 2. CORRECTION DU SPAM : On utilise votre VRAIE variable d'email

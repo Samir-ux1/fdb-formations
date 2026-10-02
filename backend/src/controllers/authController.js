@@ -8,7 +8,7 @@ const emailService = require('../utils/emailService');
 exports.register = async (req, res) => {
   console.log("👉 [1] Début inscription pour :", req.body.email);
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
 
     const userExists = await prisma.user.findUnique({ where: { email } });
     if (userExists) {
@@ -25,7 +25,7 @@ exports.register = async (req, res) => {
         name, 
         email, 
         password: hashedPassword,
-        role: role || 'STUDENT',
+        role: 'STUDENT',
         status: 'PENDING',
         verificationToken
       }
@@ -39,11 +39,14 @@ exports.register = async (req, res) => {
     } catch (emailError) {
       console.error("⚠️ [ERREUR EMAIL] L'envoi a échoué :", emailError.message);
       // On répond quand même 201 pour ne pas bloquer l'étudiant, mais on le signale
-      return res.status(201).json({ message: "Compte créé, mais l'envoi de l'email a échoué. Contactez le formateur." });
+      return res.status(201).json({
+        message: "Compte créé, mais l'e-mail de vérification n'a pas pu être envoyé. Contactez le formateur.",
+        emailSent: false,
+      });
     }
 
     console.log("🚀 [4] Réponse 201 envoyée au Frontend !");
-    return res.status(201).json({ message: "Inscription réussie." });
+    return res.status(201).json({ message: "Inscription réussie.", emailSent: true });
 
   } catch (error) {
     console.error("🔥 [ERREUR FATALE] :", error);
@@ -71,6 +74,16 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: "Mot de passe incorrect." });
     }
 
+    if (user.role === 'STUDENT' && user.status !== 'APPROVED') {
+      if (!user.isEmailVerified) {
+        return res.status(403).json({ message: "Vérifiez votre adresse email avant de vous connecter." });
+      }
+      if (user.status === 'REJECTED') {
+        return res.status(403).json({ message: "Votre inscription a été refusée. Contactez votre formateur." });
+      }
+      return res.status(403).json({ message: "Votre adresse est vérifiée. Attendez l'approbation du formateur avant de vous connecter." });
+    }
+
     // 3. Créer le Token (Vérifier si JWT_SECRET existe)
     if (!process.env.JWT_SECRET) {
       console.error("🔥 ERREUR FATALE : JWT_SECRET manquant sur Vercel !");
@@ -94,7 +107,7 @@ exports.login = async (req, res) => {
 
 // --- VÉRIFICATION DE L'EMAIL ---
 exports.verifyEmail = async (req, res) => {
-  console.log("👉 Demande de vérification reçue pour le token :", req.body.token);
+  console.log("👉 Demande de vérification d'adresse email reçue.");
 
   try {
     const { token } = req.body;
@@ -118,7 +131,8 @@ exports.verifyEmail = async (req, res) => {
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        status: 'VERIFIED', // L'email est validé (il attend maintenant l'approbation du formateur)
+        status: 'PENDING',
+        isEmailVerified: true,
         verificationToken: null // On supprime le token pour qu'il ne soit pas réutilisable !
       }
     });

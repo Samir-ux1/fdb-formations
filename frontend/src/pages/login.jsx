@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import axios from 'axios'; 
 import { useNavigate } from 'react-router-dom';
+import toast, { Toaster } from 'react-hot-toast';
+import { API_URL } from '../config/api';
 import { 
   Mail, 
   Lock, 
@@ -29,7 +31,7 @@ export default function Login() {
     try {
       if (isLogin) {
         // --- 1. LOGIQUE DE CONNEXION ---
-        const response = await axios.post('https://fdb-formations.vercel.app/api/auth/login', {
+        const response = await axios.post(`${API_URL}/auth/login`, {
           email,
           password
         });
@@ -42,14 +44,18 @@ export default function Login() {
 
       } else {
         // --- 2. LOGIQUE D'INSCRIPTION ---
-        await axios.post('https://fdb-formations.vercel.app/api/auth/register', {
+        const response = await axios.post(`${API_URL}/auth/register`, {
           name,
           email,
           password,
           role: 'STUDENT'
         });
         
-        toast.success("Inscription réussie ! Veuillez vérifier votre boîte mail pour valider votre compte.", { duration: 5000 });
+        if (response.data.emailSent === false) {
+          setError(response.data.message);
+        } else {
+          toast.success("Inscription réussie ! Veuillez vérifier votre boîte mail pour valider votre compte.", { duration: 5000 });
+        }
         setIsLogin(true); 
       }
     } catch (err) {
@@ -61,6 +67,7 @@ export default function Login() {
 
   return (
     <main className="flex min-h-screen bg-white font-sans text-slate-900">
+      <Toaster position="top-right" />
       
       {/* SECTION GAUCHE : IMAGE BRANDING TOYOTA */}
       <section className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#111827]">

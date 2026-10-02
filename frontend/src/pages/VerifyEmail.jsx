@@ -1,33 +1,30 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { CheckCircle2, XCircle, Loader2, ArrowRight } from 'lucide-react';
+import { API_URL } from '../config/api';
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
-  const navigate = useNavigate();
-
-  const [status, setStatus] = useState('loading'); // 'loading', 'success', 'error'
-  const [message, setMessage] = useState('');
+  const [verificationStatus, setVerificationStatus] = useState('loading');
+  const [verificationMessage, setVerificationMessage] = useState('');
+  const status = token ? verificationStatus : 'error';
+  const message = token ? verificationMessage : "Lien de vérification invalide ou expiré.";
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error');
-      setMessage("Lien de vérification invalide ou expiré.");
-      return;
-    }
+    if (!token) return;
 
     const verifyToken = async () => {
       try {
         // Envoie le token au backend pour valider le compte
-        await axios.post(`${import.meta.env.VITE_API_URL}/auth/verify-email`, { token });
+        await axios.post(`${API_URL}/auth/verify-email`, { token });
         
-        setStatus('success');
-        setMessage("Votre adresse email a été vérifiée avec succès !");
+        setVerificationStatus('success');
+        setVerificationMessage("Votre adresse email a été vérifiée avec succès !");
       } catch (error) {
-        setStatus('error');
-        setMessage(error.response?.data?.message || "Le lien de vérification est invalide ou a expiré.");
+        setVerificationStatus('error');
+        setVerificationMessage(error.response?.data?.message || "Le lien de vérification est invalide ou a expiré.");
       }
     };
 
