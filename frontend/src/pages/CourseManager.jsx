@@ -79,16 +79,12 @@ export default function CourseManager() {
     }
   };
 
-  // Fonction magique pour récupérer le temps d'un module précis
-  const getCourseLearningTime = (userId, courseId) => {
-    const storageKey = `time_user_${userId}_course_${courseId}`;
-    const totalSeconds = parseInt(localStorage.getItem(storageKey) || '0', 10);
-    
-    if (totalSeconds === 0) return "0m"; 
-    
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    
+  const formatLearningTime = (totalSeconds = 0) => {
+    const seconds = Number(totalSeconds) || 0;
+    if (seconds === 0) return '0m';
+    if (seconds < 60) return `${seconds}s`;
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
   };
 
@@ -1099,7 +1095,7 @@ export default function CourseManager() {
                   <div className="relative z-10">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5 flex items-center gap-1.5"><Clock className="w-3 h-3" /> Apprentissage</p>
                     <p className="font-black text-2xl">
-                      {getCourseLearningTime(selectedStudent.user.id, courseId)}
+                      {formatLearningTime(selectedStudent.learningTimeSeconds)}
                     </p>
                   </div>
                   <div className="text-right relative z-10">

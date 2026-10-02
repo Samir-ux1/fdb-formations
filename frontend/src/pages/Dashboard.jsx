@@ -13,6 +13,15 @@ import {
   Settings
 } from 'lucide-react';
 
+const formatLearningTime = (totalSeconds = 0) => {
+  const seconds = Number(totalSeconds) || 0;
+  if (seconds === 0) return '0m';
+  if (seconds < 60) return `${seconds}s`;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -39,31 +48,6 @@ export default function Dashboard() {
     const parsedUser = JSON.parse(userData);
     setUser(parsedUser); 
 
-    // ==========================================
-    // NOUVEAU : CALCUL DU TEMPS D'APPRENTISSAGE
-    // ==========================================
-    let totalSeconds = 0;
-    // On parcourt la mémoire du navigateur pour cet utilisateur
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(`time_user_${parsedUser.id}_course_`)) {
-        totalSeconds += parseInt(localStorage.getItem(key) || '0', 10);
-      }
-    }
-    // On convertit les secondes en Heures / Minutes
-    if (totalSeconds === 0) {
-      setLearningTime("0m");
-    } else {
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      if (hours > 0) {
-        setLearningTime(`${hours}h ${minutes}m`);
-      } else {
-        setLearningTime(`${minutes}m`);
-      }
-    }
-    // ==========================================
-
     const fetchMyCourses = async () => {
       try {
         const response = await axios.get('https://fdb-formations.vercel.app/api/courses/my-courses', {
@@ -84,6 +68,12 @@ export default function Dashboard() {
             isUnlocked: true // Tous les cours renvoyés par my-courses sont considérés comme débloqués
           };
         });
+
+        const totalLearningSeconds = coursesWithProgress.reduce(
+          (total, course) => total + (Number(course.learningTimeSeconds) || 0),
+          0
+        );
+        setLearningTime(formatLearningTime(totalLearningSeconds));
 
         setCourses(coursesWithProgress);
 

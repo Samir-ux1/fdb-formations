@@ -4,6 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import YouTube from 'react-youtube';
 import { useAuthStore } from '../store/authStore';
+import { API_URL } from '../config/api';
 import {
   ArrowLeft, Lock, CheckCircle2, PlayCircle, FileText, PlaySquare, 
   HelpCircle, Trophy, XCircle, RotateCcw, Target, Award, ListChecks, ArrowRight
@@ -108,6 +109,69 @@ export default function CoursePlayer() {
     fetchCourseData();
     if (courseId) localStorage.setItem('lastCourseId', courseId);
   }, [courseId]);
+
+  // Enregistre le temps où la formation est réellement affichée au premier plan.
+  useEffect(() => {
+    if (!course?.enrollment || course.enrollment.status !== 'IN_PROGRESS') return;
+
+    const activeToken = token || localStorage.getItem('token');
+    if (!activeToken) return;
+
+    let lastTick = Date.now();
+    let pendingSeconds = 0;
+    let isSending = false;
+
+    const collectVisibleTime = () => {
+      const now = Date.now();
+      if (document.visibilityState === 'visible') {
+        pendingSeconds += Math.min(30, Math.floor((now - lastTick) / 1000));
+      }
+      lastTick = now;
+    };
+
+    const flushLearningTime = async (keepalive = false) => {
+      collectVisibleTime();
+      if (pendingSeconds < 1 || isSending) return;
+
+      const seconds = Math.min(pendingSeconds, 60);
+      pendingSeconds -= seconds;
+      isSending = true;
+
+      try {
+        const response = await fetch(`${API_URL}/courses/${courseId}/learning-time`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${activeToken}`
+          },
+          body: JSON.stringify({ seconds }),
+          keepalive
+        });
+        if (!response.ok) pendingSeconds += seconds;
+      } catch {
+        pendingSeconds += seconds;
+      } finally {
+        isSending = false;
+      }
+    };
+
+    const intervalId = window.setInterval(() => flushLearningTime(), 15000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushLearningTime(true);
+      else lastTick = Date.now();
+    };
+    const handlePageHide = () => flushLearningTime(true);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+      flushLearningTime(true);
+    };
+  }, [course?.enrollment?.id, course?.enrollment?.status, courseId, token]);
 
   // 2. MOTEUR DU QUIZ : GÉNÉRATION ET MÉLANGE
   const initializeQuiz = (lesson) => {
