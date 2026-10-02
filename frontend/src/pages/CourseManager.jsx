@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import {
-  ArrowLeft, Settings, Trash2, BookOpen, GraduationCap, Users, Plus, Edit,
-  PlaySquare, FileText, CheckCircle2, XCircle, Clock, RotateCcw, Target,
+  ArrowLeft, Settings, Trash2, BookOpen, Users, Plus, Edit,
+  PlaySquare, FileText, CheckCircle2, XCircle, Clock, Target,
   ClipboardList, HelpCircle, UserCheck, UserX, X, LayoutTemplate, Tag, AlignLeft,
-  KeyRound, Image as ImageIcon, Sparkles, ExternalLink, Video, Layers
+  KeyRound, Image as ImageIcon, ExternalLink
 } from 'lucide-react';
 
 export default function CourseManager() {
@@ -14,6 +14,7 @@ export default function CourseManager() {
   const navigate = useNavigate();
   
   const [course, setCourse] = useState(null); 
+  const [courseError, setCourseError] = useState('');
   const [students, setStudents] = useState([]); 
   const [categories, setCategories] = useState([]); 
   
@@ -46,12 +47,12 @@ export default function CourseManager() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCourse(response.data);
+      setCourseError('');
       if (!editingLessonId) {
         setNewLesson(prev => ({ ...prev, order: (response.data.lessons?.length || 0) + 1 }));
       }
     } catch (error) {
-      toast.error("Erreur de chargement. Le cours n'existe pas ou la connexion a échoué.");
-      navigate('/instructor');
+      setCourseError(error.response?.data?.message || "Impossible de charger cette formation depuis le serveur.");
     }
   };
 
@@ -63,7 +64,8 @@ export default function CourseManager() {
       });
       setStudents(response.data);
     } catch (error) {
-      console.error("Échec du chargement des étudiants via API.");
+      console.error("Échec du chargement des étudiants :", error);
+      setStudents([]);
     }
   };
 
@@ -72,7 +74,8 @@ export default function CourseManager() {
       const response = await axios.get('https://fdb-formations.vercel.app/api/categories');
       setCategories(response.data);
     } catch (error) {
-      console.error("Erreur de chargement des catégories.");
+      console.error("Échec du chargement des catégories :", error);
+      setCategories([]);
     }
   };
 
@@ -90,11 +93,9 @@ export default function CourseManager() {
   };
 
   useEffect(() => {
-    if (courseId) {
-      fetchCourse();
-      fetchStudents();
-      fetchCategories(); 
-    }
+    fetchCourse();
+    fetchStudents();
+    fetchCategories(); 
   }, [courseId]);
 
   // --- ACTIONS EXAMEN ---
@@ -109,7 +110,7 @@ export default function CourseManager() {
       setNewExamQ({ questionText: '', options: ['', '', '', ''], correctAnswer: 0 });
       fetchCourse(); 
     } catch (error) {
-      toast.error("Erreur lors de l'ajout de la question.");
+      toast.error(error.response?.data?.message || "Impossible d'ajouter la question d'examen.");
     }
   };
 
@@ -120,10 +121,9 @@ export default function CourseManager() {
       await axios.delete(`https://fdb-formations.vercel.app/api/courses/${courseId}/exam-questions/${questionId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      toast.success("Question supprimée.");
       fetchCourse(); 
     } catch (error) {
-      toast.error("Erreur lors de la suppression.");
+      toast.error(error.response?.data?.message || "Impossible de supprimer cette question.");
     }
   };
 
@@ -138,7 +138,7 @@ export default function CourseManager() {
       toast.success("Formation réinitialisée pour l'étudiant !");
       fetchStudents(); 
     } catch (error) {
-      toast.error("Erreur lors de la réinitialisation.");
+      toast.error(error.response?.data?.message || "Impossible de réinitialiser la formation.");
     }
   };
 
@@ -153,7 +153,7 @@ export default function CourseManager() {
       setSelectedStudent(null); 
       fetchStudents(); 
     } catch (error) {
-      toast.error("Erreur lors de la mise à jour du statut.");
+      toast.error(error.response?.data?.message || "Impossible de modifier le statut.");
     }
   };
 
@@ -169,7 +169,7 @@ export default function CourseManager() {
       setIsEditingCourse(false);
       fetchCourse(); 
     } catch (error) {
-      toast.error("Erreur lors de la modification de la formation.");
+      toast.error(error.response?.data?.message || "Impossible de mettre à jour la formation.");
     }
   };
 
@@ -183,7 +183,7 @@ export default function CourseManager() {
       toast.success("Formation supprimée.");
       navigate('/instructor'); 
     } catch (error) {
-      toast.error("Erreur lors de la suppression de la formation.");
+      toast.error(error.response?.data?.message || "Impossible de supprimer la formation.");
     }
   };
 
@@ -211,8 +211,9 @@ export default function CourseManager() {
     const dataToSend = {
       title: newLesson.title.trim(),
       content: newLesson.content.trim(),
-      order: parseInt(newLesson.order) || (course.lessons?.length + 1 || 1),
+      order: parseInt(newLesson.order) || (course.lessons.length + 1),
       quizQuestionCount: parseInt(newLesson.quizQuestionCount) || 0,
+      // Enregistrement simultané : vidéo ET/OU pdf selon le choix
       videoUrl: includesVideo && newLesson.videoUrl?.trim() ? newLesson.videoUrl.trim() : null,
       pdfUrl: includesPdf && newLesson.pdfUrl?.trim() ? newLesson.pdfUrl.trim() : null,
     };
@@ -223,17 +224,16 @@ export default function CourseManager() {
 
       if (editingLessonId) {
         await axios.put(`https://fdb-formations.vercel.app/api/courses/${courseId}/lessons/${editingLessonId}`, dataToSend, config);
-        toast.success("Chapitre mis à jour !");
       } else {
         await axios.post(`https://fdb-formations.vercel.app/api/courses/${courseId}/lessons`, dataToSend, config);
-        toast.success("Chapitre sauvegardé !");
       }
       
       setEditingLessonId(null);
-      setNewLesson({ title: '', content: '', videoUrl: '', pdfUrl: '', order: (course?.lessons?.length || 0) + 2, quizQuestionCount: 0 });
+      setNewLesson({ title: '', content: '', videoUrl: '', pdfUrl: '', order: course.lessons.length + 2, quizQuestionCount: 0 });
       fetchCourse();
+      toast.success(editingLessonId ? "Chapitre mis à jour !" : "Chapitre  sauvegardé !");
     } catch (error) {
-      toast.error("Erreur lors de l'enregistrement du chapitre.");
+      toast.error(error.response?.data?.message || "Impossible d'enregistrer ce chapitre.");
     } finally {
       setIsProcessing(false);
     }
@@ -242,6 +242,7 @@ export default function CourseManager() {
   const handleEditLesson = (lesson) => {
     setEditingLessonId(lesson.id);
     
+    // Détection automatique du type de contenu : les deux, vidéo seule ou pdf seul
     if (lesson.videoUrl && lesson.pdfUrl) {
       setLessonType('BOTH');
     } else if (lesson.pdfUrl) {
@@ -267,10 +268,9 @@ export default function CourseManager() {
     try {
       const token = localStorage.getItem('token');
       await axios.delete(`https://fdb-formations.vercel.app/api/courses/${courseId}/lessons/${lessonId}`, { headers: { Authorization: `Bearer ${token}` } });
-      toast.success("Chapitre supprimé.");
       fetchCourse();
     } catch (error) {
-      toast.error("Erreur lors de la suppression du chapitre.");
+      toast.error(error.response?.data?.message || "Impossible de supprimer ce chapitre.");
     }
   };
 
@@ -283,10 +283,10 @@ export default function CourseManager() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNewLessonQ({ questionText: '', options: ['', '', '', ''], correctAnswer: 0 });
-      toast.success("Question ajoutée au quiz !");
       fetchCourse(); 
+      toast.success("Question ajoutée au quiz !");
     } catch (error) {
-      toast.error("Erreur lors de l'ajout de la question.");
+      toast.error(error.response?.data?.message || "Impossible d'ajouter la question au quiz.");
     }
   };
   
@@ -297,21 +297,27 @@ export default function CourseManager() {
       await axios.delete(`https://fdb-formations.vercel.app/api/courses/${courseId}/lessons/${managingQuizForLessonId}/questions/${questionId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      toast.success("Question supprimée.");
       fetchCourse();
+      toast.success("Question supprimée.");
     } catch (error) {
-      toast.error("Erreur lors de la suppression de la question.");
+      toast.error(error.response?.data?.message || "Impossible de supprimer cette question.");
     }
   };
 
-  if (!course) return (
+  if (!course) return courseError ? (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4 px-6 text-center">
+      <p className="font-bold text-slate-800">{courseError}</p>
+      <button onClick={fetchCourse} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white">Réessayer</button>
+      <button onClick={() => navigate('/instructor')} className="text-sm font-bold text-slate-600">Retour au portail formateur</button>
+    </div>
+  ) : (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4">
       <div className="w-10 h-10 border-4 border-[#EB0A1E] border-t-transparent rounded-full animate-spin"></div>
       <p className="text-xs uppercase tracking-wider font-bold text-slate-500">Chargement de la formation...</p>
     </div>
   );
 
-  const activeQuizLesson = managingQuizForLessonId ? course.lessons?.find(l => l.id === managingQuizForLessonId) : null;
+  const activeQuizLesson = managingQuizForLessonId ? course.lessons.find(l => l.id === managingQuizForLessonId) : null;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20">
@@ -321,7 +327,7 @@ export default function CourseManager() {
       <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <button 
-            onClick={() => navigate('/instructor')} 
+            onClick={() => navigate(-1)} 
             className="text-slate-500 font-bold hover:text-[#EB0A1E] text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5 w-fit transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" /> Retour au Portail Formateur
@@ -449,6 +455,7 @@ export default function CourseManager() {
                   </div>
 
                   <div className="grid grid-cols-3 gap-2">
+                    {/* OPTION 1 : LES DEUX (VIDÉO & PDF SIMULTANÉS) */}
                     <button
                       type="button"
                       id="support-both-button"
@@ -463,6 +470,7 @@ export default function CourseManager() {
                       <span className="text-xs font-black leading-tight">Vidéo & PDF</span>
                     </button>
 
+                    {/* OPTION 2 : VIDÉO SEULE */}
                     <button
                       type="button"
                       id="support-video-button"
@@ -474,6 +482,7 @@ export default function CourseManager() {
                       <span className="text-[9px] uppercase tracking-wider font-extrabold opacity-80 mt-0.5">MP4 / Web</span>
                     </button>
 
+                    {/* OPTION 3 : PDF SEUL */}
                     <button
                       type="button"
                       id="support-pdf-button"
@@ -487,7 +496,7 @@ export default function CourseManager() {
                   </div>
                 </div>
 
-                {/* CHAMP VIDÉO */}
+                {/* CHAMP VIDÉO (AFFICHÉ SI 'VIDEO' OU 'BOTH') */}
                 {(lessonType === 'VIDEO' || lessonType === 'BOTH') && (
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
                     <label className="flex items-center justify-between text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
@@ -504,15 +513,16 @@ export default function CourseManager() {
                       className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 text-sm transition-all" 
                       required={lessonType === 'VIDEO' || lessonType === 'BOTH'} 
                     />
+                    <p className="text-[10px] text-slate-400 mt-1">Insérez le lien vidéo hébergé ou en streaming pour ce cours.</p>
                   </div>
                 )}
 
-                {/* CHAMP PDF */}
+                {/* CHAMP PDF (AFFICHÉ SI 'PDF' OU 'BOTH') */}
                 {(lessonType === 'PDF' || lessonType === 'BOTH') && (
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
                     <label className="flex items-center justify-between text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
                       <span className="flex items-center gap-1.5 text-purple-600">
-                        <FileText className="w-3.5 h-3.5" /> Lien du document PDF
+                        <FileText className="w-3.5 h-3.5" /> Lien du document PDF (Google Drive / Cloud / Web)
                       </span>
                     </label>
                     <input 
@@ -524,6 +534,7 @@ export default function CourseManager() {
                       className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100 text-sm transition-all" 
                       required={lessonType === 'PDF' || lessonType === 'BOTH'} 
                     />
+                    <p className="text-[10px] text-slate-400 mt-1">L'apprenant aura un accès direct au support de cours et fiches de révision.</p>
                   </div>
                 )}
                 
@@ -534,7 +545,7 @@ export default function CourseManager() {
                     value={newLesson.content || ''} 
                     onChange={e => setNewLesson({...newLesson, content: e.target.value})} 
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm transition-all h-24" 
-                    placeholder="Résumé du chapitre..." 
+                    placeholder="Résumé du chapitre, consignes de lecture du PDF et points clés de la vidéo..." 
                   />
                 </div>
 
@@ -570,7 +581,15 @@ export default function CourseManager() {
                       disabled={isProcessing} 
                       className={`w-full py-3.5 text-white font-black uppercase tracking-wider text-xs rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 ${editingLessonId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-[#EB0A1E] hover:bg-red-700'}`}
                     >
-                      {editingLessonId ? <><CheckCircle2 className="w-4 h-4" /> Mettre à jour</> : <><Plus className="w-4 h-4" /> Enregistrer</>}
+                      {editingLessonId ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" /> Mettre à jour
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" /> Enregistrer le chapitre
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -581,7 +600,7 @@ export default function CourseManager() {
                     id="lesson-cancel-edit-button"
                     onClick={() => { 
                       setEditingLessonId(null); 
-                      setNewLesson({ title: '', content: '', videoUrl: '', pdfUrl: '', order: course.lessons?.length + 1 || 1, quizQuestionCount: 0 }); 
+                      setNewLesson({ title: '', content: '', videoUrl: '', pdfUrl: '', order: course.lessons.length + 1, quizQuestionCount: 0 }); 
                       setLessonType('BOTH');
                     }} 
                     className="w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors text-xs uppercase tracking-wider cursor-pointer"
@@ -596,16 +615,22 @@ export default function CourseManager() {
             <div className="lg:col-span-7 bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-200">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
                 <div>
-                  <h2 className="text-xl font-black text-slate-900">Contenu structuré ({course.lessons?.length || 0})</h2>
+                  <h2 className="text-xl font-black text-slate-900">Contenu structuré ({course.lessons.length})</h2>
                   <p className="text-xs text-slate-400 font-medium">Chaque leçon peut intégrer simultanément une vidéo et un document PDF.</p>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                  <span className="flex items-center gap-1 text-blue-600"><PlaySquare className="w-3.5 h-3.5" /> Vidéo</span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 text-purple-600"><FileText className="w-3.5 h-3.5" /> PDF</span>
                 </div>
               </div>
 
               <div className="space-y-4">
-                {(!course.lessons || course.lessons.length === 0) ? (
+                {course.lessons.length === 0 ? (
                   <div className="text-center py-12 bg-slate-50 rounded-2xl border border-slate-100">
                     <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 font-bold">Aucun chapitre n'a encore été ajouté.</p>
+                    <p className="text-slate-400 text-xs mt-1">Utilisez le formulaire à gauche pour créer une leçon avec vidéo et PDF.</p>
                   </div>
                 ) : course.lessons.map(lesson => {
                   const hasVideo = Boolean(lesson.videoUrl);
@@ -613,26 +638,79 @@ export default function CourseManager() {
                   const isEnriched = hasVideo && hasPdf;
 
                   return (
-                    <div key={lesson.id} className={`p-5 bg-white border shadow-sm rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 group transition-all ${isEnriched ? 'border-emerald-200 hover:border-emerald-400' : 'border-slate-200 hover:border-[#EB0A1E]'}`}>
+                    <div 
+                      key={lesson.id} 
+                      className={`p-5 bg-white border shadow-sm rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 group transition-all ${isEnriched ? 'border-emerald-200 hover:border-emerald-400' : 'border-slate-200 hover:border-[#EB0A1E]'}`}
+                    >
                       <div className="flex items-start gap-4 overflow-hidden">
                         <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${isEnriched ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-700'}`}>
                           {lesson.order}
                         </div>
                         <div>
-                          <div className="flex items-center gap-2"><h4 className="font-bold text-slate-900 line-clamp-1 text-base">{lesson.title}</h4></div>
-                          {lesson.content && <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{lesson.content}</p>}
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-slate-900 line-clamp-1 text-base">{lesson.title}</h4>
+                          </div>
+
+                          {lesson.content && (
+                            <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{lesson.content}</p>
+                          )}
+
+                          {/* BADGES MULTI-RESSOURCES : AFFICHAGE CLAIR DU CONTENU ENRICHI */}
                           <div className="flex flex-wrap items-center gap-2 mt-2">
-                            {hasVideo && <a href={lesson.videoUrl} target="_blank" rel="noreferrer" className="px-2 py-0.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 text-[10px] font-black uppercase tracking-wider rounded-md flex items-center gap-1 transition-colors"><PlaySquare className="w-3 h-3" /> Vidéo <ExternalLink className="w-2.5 h-2.5 opacity-60" /></a>}
-                            {hasPdf && <a href={lesson.pdfUrl} target="_blank" rel="noreferrer" className="px-2 py-0.5 bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-100 text-[10px] font-black uppercase tracking-wider rounded-md flex items-center gap-1 transition-colors"><FileText className="w-3 h-3" /> PDF <ExternalLink className="w-2.5 h-2.5 opacity-60" /></a>}
-                            <span className="text-xs text-slate-400 font-medium">{lesson.questions?.length > 0 ? `${lesson.questions.length} questions` : 'Pas de quiz'}</span>
+
+                            {hasVideo && (
+                              <a 
+                                href={lesson.videoUrl} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="px-2 py-0.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 text-[10px] font-black uppercase tracking-wider rounded-md flex items-center gap-1 transition-colors"
+                                title="Voir la vidéo"
+                              >
+                                <PlaySquare className="w-3 h-3" /> Vidéo <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                              </a>
+                            )}
+
+                            {hasPdf && (
+                              <a 
+                                href={lesson.pdfUrl} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="px-2 py-0.5 bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-100 text-[10px] font-black uppercase tracking-wider rounded-md flex items-center gap-1 transition-colors"
+                                title="Ouvrir le PDF"
+                              >
+                                <FileText className="w-3 h-3" /> PDF <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                              </a>
+                            )}
+
+                            <span className="text-xs text-slate-400 font-medium">
+                              {lesson.questions?.length > 0 ? `${lesson.questions.length} questions` : 'Pas de quiz'}
+                            </span>
                           </div>
                         </div>
                       </div>
 
                       <div className="flex gap-2 sm:opacity-90 group-hover:opacity-100 transition-opacity shrink-0 border-t sm:border-t-0 border-slate-100 pt-3 sm:pt-0">
-                        <button onClick={() => setManagingQuizForLessonId(lesson.id)} className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer" title="Gérer le quiz"><HelpCircle className="w-3.5 h-3.5" /> Quiz</button>
-                        <button onClick={() => handleEditLesson(lesson)} className="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 font-bold transition-colors cursor-pointer" title="Modifier"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleDeleteLesson(lesson.id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-bold transition-colors cursor-pointer" title="Supprimer"><Trash2 className="w-4 h-4" /></button>
+                        <button 
+                          onClick={() => setManagingQuizForLessonId(lesson.id)} 
+                          className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                          title="Gérer le quiz du chapitre"
+                        >
+                          <HelpCircle className="w-3.5 h-3.5" /> Quiz
+                        </button>
+                        <button 
+                          onClick={() => handleEditLesson(lesson)} 
+                          className="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 font-bold transition-colors cursor-pointer"
+                          title="Modifier le chapitre"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteLesson(lesson.id)} 
+                          className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-bold transition-colors cursor-pointer"
+                          title="Supprimer le chapitre"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   );
@@ -647,22 +725,34 @@ export default function CourseManager() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div className="lg:col-span-5 bg-[#111827] p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-800 h-fit text-white sticky top-24">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-slate-800 text-white rounded-xl flex items-center justify-center"><Target className="w-5 h-5" /></div>
-                <div><h2 className="text-xl font-black text-white">Créer une question</h2><p className="text-xs text-slate-400">Examen final de certification</p></div>
+                <div className="w-10 h-10 bg-slate-800 text-white rounded-xl flex items-center justify-center">
+                  <Target className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-white">Créer une question</h2>
+                  <p className="text-xs text-slate-400">Examen final de certification</p>
+                </div>
               </div>
               <form onSubmit={handleAddExamQuestion} className="space-y-5">
-                <div><label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5">Intitulé de la question</label><input type="text" value={newExamQ.questionText} onChange={e => setNewExamQ({...newExamQ, questionText: e.target.value})} className="w-full px-4 py-3 bg-slate-800 border-none rounded-xl outline-none text-white focus:ring-2 focus:ring-slate-500 text-sm transition-all" required /></div>
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5">Intitulé de la question</label>
+                  <input type="text" value={newExamQ.questionText} onChange={e => setNewExamQ({...newExamQ, questionText: e.target.value})} className="w-full px-4 py-3 bg-slate-800 border-none rounded-xl outline-none text-white focus:ring-2 focus:ring-slate-500 text-sm transition-all" placeholder="Ex: Que signifie TPS ?" required />
+                </div>
                 <div>
                   <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">Options & Bonne Réponse</label>
                   {newExamQ.options.map((opt, i) => (
                     <div key={i} className="flex gap-3 mb-3 items-center">
-                      <div className="relative flex items-center"><input type="radio" name="correctAns" checked={newExamQ.correctAnswer === i} onChange={() => setNewExamQ({...newExamQ, correctAnswer: i})} className="w-5 h-5 accent-[#EB0A1E] cursor-pointer"/></div>
+                      <div className="relative flex items-center">
+                        <input type="radio" name="correctAns" checked={newExamQ.correctAnswer === i} onChange={() => setNewExamQ({...newExamQ, correctAnswer: i})} className="w-5 h-5 accent-[#EB0A1E] cursor-pointer"/>
+                      </div>
                       <input type="text" placeholder={`Option ${i+1}`} value={opt} onChange={e => { const newOpts = [...newExamQ.options]; newOpts[i] = e.target.value; setNewExamQ({...newExamQ, options: newOpts}); }} className={`w-full px-4 py-2 bg-slate-800 border-none rounded-lg outline-none text-white text-sm transition-all ${newExamQ.correctAnswer === i ? 'ring-1 ring-[#EB0A1E]' : 'focus:ring-1 focus:ring-slate-500'}`} required />
                     </div>
                   ))}
                   <p className="text-[10px] text-slate-500 uppercase font-bold mt-2">Cochez le bouton de la bonne réponse.</p>
                 </div>
-                <button type="submit" className="w-full py-3.5 bg-[#EB0A1E] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#BD0014] transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 mt-4 cursor-pointer"><Plus className="w-4 h-4" /> Ajouter à l'examen</button>
+                <button type="submit" className="w-full py-3.5 bg-[#EB0A1E] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#BD0014] transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 mt-4 cursor-pointer">
+                  <Plus className="w-4 h-4" /> Ajouter à l'examen
+                </button>
               </form>
             </div>
 
@@ -670,16 +760,29 @@ export default function CourseManager() {
               <h2 className="text-xl font-black text-slate-900 mb-6">Base de questions ({course.examQuestions?.length || 0})</h2>
               <div className="space-y-4">
                 {(!course.examQuestions || course.examQuestions.length === 0) ? (
-                  <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-100"><ClipboardList className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-500 font-bold">L'examen final ne contient aucune question.</p></div>
+                  <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-100">
+                    <ClipboardList className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-bold">L'examen final ne contient aucune question.</p>
+                  </div>
                 ) : (
                   course.examQuestions.map((q, i) => (
                     <div key={q.id} className="p-5 bg-slate-50 border border-slate-200 rounded-2xl relative group hover:border-slate-300 transition-colors">
-                      <button onClick={() => handleDeleteExamQuestion(q.id)} className="absolute top-4 right-4 p-2 bg-white text-slate-400 border border-slate-200 rounded-lg sm:opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 hover:text-red-600 hover:border-red-200 font-bold cursor-pointer" title="Supprimer"><Trash2 className="w-4 h-4" /></button>
-                      <p className="font-bold text-slate-900 mb-3 pr-12 text-base flex items-start gap-2"><span className="text-slate-400">Q{i+1}.</span> {q.questionText}</p>
+                      <button 
+                        onClick={() => handleDeleteExamQuestion(q.id)}
+                        className="absolute top-4 right-4 p-2 bg-white text-slate-400 border border-slate-200 rounded-lg sm:opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 hover:text-red-600 hover:border-red-200 font-bold cursor-pointer"
+                        title="Supprimer la question"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+
+                      <p className="font-bold text-slate-900 mb-3 pr-12 text-base flex items-start gap-2">
+                        <span className="text-slate-400">Q{i+1}.</span> {q.questionText}
+                      </p>
                       <ul className="text-sm space-y-2">
                         {q.options.map((opt, optIdx) => (
                           <li key={optIdx} className={`flex items-start gap-2 p-2 rounded-lg border ${q.correctAnswer === optIdx ? 'bg-emerald-50 border-emerald-100 text-emerald-700 font-bold' : 'border-transparent text-slate-600'}`}>
-                            {q.correctAnswer === optIdx ? <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" /> : <div className="w-4 h-4 rounded-full border border-slate-300 mt-0.5 shrink-0"></div>}<span>{opt}</span>
+                            {q.correctAnswer === optIdx ? <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" /> : <div className="w-4 h-4 rounded-full border border-slate-300 mt-0.5 shrink-0"></div>}
+                            <span>{opt}</span>
                           </li>
                         ))}
                       </ul>
@@ -713,7 +816,7 @@ export default function CourseManager() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
-                  {(!students || students.length === 0) ? (
+                  {students.length === 0 ? (
                     <tr>
                       <td colSpan="5" className="px-6 py-12 text-center">
                         <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
@@ -722,7 +825,11 @@ export default function CourseManager() {
                     </tr>
                   ) : (
                     students.map(student => (
-                      <tr key={student.id} onClick={() => setSelectedStudent(student)} className="hover:bg-slate-50 transition-colors cursor-pointer group">
+                      <tr 
+                        key={student.id} 
+                        onClick={() => setSelectedStudent(student)} 
+                        className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                      >
                         <td className="px-6 py-4 flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-black overflow-hidden shadow-sm">
                             {student.user?.avatarUrl ? <img src={student.user.avatarUrl} className="w-full h-full object-cover" alt="avatar"/> : student.user?.name?.charAt(0).toUpperCase()}
@@ -746,6 +853,7 @@ export default function CourseManager() {
                             <span className="text-slate-400 font-semibold text-xs">-</span>
                           )}
                         </td>
+                        {/* CHAMP NOTE DE TERRAIN */}
                         <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                           <div className="flex flex-col gap-1">
                             <div className="flex gap-2">
@@ -765,7 +873,7 @@ export default function CourseManager() {
                                     toast.success("Note de terrain enregistrée !");
                                     fetchStudents();
                                   } catch(err) { 
-                                    toast.error("Erreur d'enregistrement de la note.");
+                                    toast.error(err.response?.data?.message || "Impossible d'enregistrer la note de terrain.");
                                   }
                                 }}
                                 className="bg-slate-900 text-white px-2.5 py-1 rounded-lg text-xs font-bold hover:bg-[#EB0A1E] transition-colors cursor-pointer"
@@ -777,7 +885,7 @@ export default function CourseManager() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           {student.status === 'FAILED' && (
-                            <button onClick={(e) => { e.stopPropagation(); handleResetStudent(student.user?.id); }} className="px-4 py-2 bg-orange-100 text-orange-700 hover:bg-orange-200 font-bold text-xs rounded-xl transition-colors uppercase cursor-pointer">
+                            <button onClick={() => handleResetStudent(student.user?.id)} className="px-4 py-2 bg-orange-100 text-orange-700 hover:bg-orange-200 font-bold text-xs rounded-xl transition-colors uppercase cursor-pointer">
                               ↻ Seconde chance
                             </button>
                           )}
@@ -815,8 +923,11 @@ export default function CourseManager() {
 
             <div className="p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-2 gap-8 overflow-y-auto bg-slate-50 rounded-b-3xl">
               
+              {/* Formulaire ajout QCM Leçon */}
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
-                <h4 className="font-black text-slate-900 mb-5 flex items-center gap-2 text-lg">Nouveau QCM</h4>
+                <h4 className="font-black text-slate-900 mb-5 flex items-center gap-2 text-lg">
+                  Nouveau QCM
+                </h4>
                 <form onSubmit={handleAddLessonQuestion} className="space-y-5">
                   <div>
                     <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">Intitulé</label>
@@ -837,6 +948,7 @@ export default function CourseManager() {
                 </form>
               </div>
 
+              {/* Liste des questions existantes */}
               <div className="space-y-4">
                 <h4 className="font-black text-slate-900 text-lg">Questions actuelles ({activeQuizLesson.questions?.length || 0})</h4>
                 {(!activeQuizLesson.questions || activeQuizLesson.questions.length === 0) ? (
@@ -872,7 +984,9 @@ export default function CourseManager() {
             <div className="absolute top-0 left-0 w-full h-2 bg-[#111827] rounded-t-3xl"></div>
             
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-slate-100 text-slate-800 rounded-xl flex items-center justify-center"><Settings className="w-5 h-5" /></div>
+              <div className="w-10 h-10 bg-slate-100 text-slate-800 rounded-xl flex items-center justify-center">
+                <Settings className="w-5 h-5" />
+              </div>
               <h3 className="text-xl font-black text-slate-900">Paramètres de la formation</h3>
             </div>
 
@@ -883,7 +997,13 @@ export default function CourseManager() {
               </div>
               <div>
                 <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">Durée limite en jours (Optionnel)</label>
-                <input type="number" min="1" value={editCourseData.timeLimitDays || ''} onChange={e => setEditCourseData({...editCourseData, timeLimitDays: parseInt(e.target.value) || null})} placeholder="Laissez vide pour durée illimitée" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm transition-all" />
+                <input 
+                  type="number" min="1" 
+                  value={editCourseData.timeLimitDays || ''} 
+                  onChange={e => setEditCourseData({...editCourseData, timeLimitDays: parseInt(e.target.value) || null})} 
+                  placeholder="Laissez vide pour durée illimitée"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm transition-all" 
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -893,6 +1013,7 @@ export default function CourseManager() {
                     {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                   </select>
                 </div>
+
                 <div>
                   <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5"><Target className="w-3.5 h-3.5"/> Niveau</label>
                   <select value={editCourseData.level} onChange={(e) => setEditCourseData({...editCourseData, level: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm transition-all">
@@ -939,6 +1060,7 @@ export default function CourseManager() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col relative overflow-hidden">
             
+            {/* Décoration Header */}
             <div className={`absolute top-0 left-0 w-full h-3 ${selectedStudent.status === 'VALIDATED' ? 'bg-emerald-500' : selectedStudent.status === 'FAILED' ? 'bg-red-500' : 'bg-slate-800'}`}></div>
 
             <div className="p-6 sm:p-8 border-b border-slate-100 flex justify-between items-start bg-slate-50/50 mt-3">
@@ -958,6 +1080,7 @@ export default function CourseManager() {
 
             <div className="p-6 space-y-5">
               
+              {/* Statistiques Globales */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><KeyRound className="w-3 h-3" /> Date d'activation</p>
@@ -973,7 +1096,9 @@ export default function CourseManager() {
                   <div className="absolute top-0 right-0 -mr-10 -mt-10 w-32 h-32 bg-white opacity-5 rounded-full blur-2xl"></div>
                   <div className="relative z-10">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5 flex items-center gap-1.5"><Clock className="w-3 h-3" /> Apprentissage</p>
-                    <p className="font-black text-2xl">{getCourseLearningTime(selectedStudent.user?.id, courseId)}</p>
+                    <p className="font-black text-2xl">
+                      {getCourseLearningTime(selectedStudent.user.id, courseId)}
+                    </p>
                   </div>
                   <div className="text-right relative z-10">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Note de certification</p>
@@ -984,17 +1109,18 @@ export default function CourseManager() {
                 </div>
               </div>
 
+              {/* Détails par leçon */}
               <div>
                 <h4 className="font-black text-slate-900 mb-2.5 text-sm uppercase tracking-wider">Chapitres validés</h4>
                 <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-2xl divide-y divide-slate-100 bg-slate-50 custom-scrollbar">
-                  {(!selectedStudent.user?.lessonProgresses || selectedStudent.user.lessonProgresses.length === 0) ? (
+                  {(!selectedStudent.user.lessonProgresses || selectedStudent.user.lessonProgresses.length === 0) ? (
                     <p className="p-4 text-slate-500 text-xs font-semibold text-center">Aucun chapitre terminé.</p>
                   ) : (
                     selectedStudent.user.lessonProgresses.map((progress, idx) => (
                       <div key={idx} className="p-3 flex justify-between items-center bg-white hover:bg-slate-50 transition-colors">
                         <p className="text-xs font-bold text-slate-800 flex items-center gap-2">
-                          <span className="w-5 h-5 bg-slate-100 text-slate-500 rounded flex items-center justify-center text-[10px]">{progress.lesson?.order}</span>
-                          <span className="truncate max-w-[200px]">{progress.lesson?.title}</span>
+                          <span className="w-5 h-5 bg-slate-100 text-slate-500 rounded flex items-center justify-center text-[10px]">{progress.lesson.order}</span>
+                          <span className="truncate max-w-[200px]">{progress.lesson.title}</span>
                         </p>
                         <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0 ${(progress.score ?? 20) >= 10 ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-[#EB0A1E] border border-red-100'}`}>
                           Score: {progress.score ?? 20}/20
@@ -1005,6 +1131,7 @@ export default function CourseManager() {
                 </div>
               </div>
 
+              {/* Score Examen Final Brut */}
               <div className="p-4 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm">
                 <span className="font-black text-slate-700 uppercase tracking-wider text-[10px]">Note brute Examen Final :</span>
                 <span className="font-black text-base bg-slate-100 px-3 py-1 rounded-lg text-slate-900">{selectedStudent.examScore !== null && selectedStudent.examScore !== undefined ? `${selectedStudent.examScore}/20` : 'Non passé'}</span>
@@ -1012,14 +1139,22 @@ export default function CourseManager() {
               
             </div>
 
+            {/* Actions Administratives (Forcer le statut) */}
             <div className="p-6 sm:p-8 border-t border-slate-100 bg-slate-50 flex gap-4">
-              <button onClick={() => handleOverrideStatus(selectedStudent.user?.id, 'FAILED')} className="w-1/2 py-3.5 bg-white border-2 border-slate-200 text-slate-700 text-xs font-black uppercase tracking-wider rounded-xl hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-all flex items-center justify-center gap-2 cursor-pointer">
+              <button 
+                onClick={() => handleOverrideStatus(selectedStudent.user?.id, 'FAILED')}
+                className="w-1/2 py-3.5 bg-white border-2 border-slate-200 text-slate-700 text-xs font-black uppercase tracking-wider rounded-xl hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
                 <UserX className="w-4 h-4" /> Non Valider
               </button>
-              <button onClick={() => handleOverrideStatus(selectedStudent.user?.id, 'VALIDATED')} className="w-1/2 py-3.5 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-emerald-600 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer">
+              <button 
+                onClick={() => handleOverrideStatus(selectedStudent.user?.id, 'VALIDATED')}
+                className="w-1/2 py-3.5 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-emerald-600 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              >
                 <UserCheck className="w-4 h-4" /> Forcer Validation
               </button>
             </div>
+
           </div>
         </div>
       )}

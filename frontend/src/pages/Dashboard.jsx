@@ -432,7 +432,7 @@ export default function Dashboard() {
                   setQuickKey(e.target.value.toUpperCase());
                   setKeyMessage(null);
                 }}
-                placeholder="EX: SAFETY24, TOY-2024-X"
+                placeholder="Saisissez votre clé d'accès"
                 className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono font-bold tracking-widest text-center text-white focus:outline-none focus:border-[#EB0A1E] uppercase"
               />
               <button

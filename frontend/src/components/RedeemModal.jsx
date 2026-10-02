@@ -15,8 +15,6 @@ export default function RedeemModal() {
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   
-  const DEMO_KEYS = ['SAFETY24', 'TOY-2024-X', 'KAIZEN2026'];
-
   // Fonction pour fermer la modale et retirer "?modal=redeem" de l'URL
   const closeModal = () => {
     navigate(location.pathname, { replace: true });
@@ -135,7 +133,7 @@ export default function RedeemModal() {
                     setAccessKey(e.target.value.toUpperCase());
                     setError('');
                   }}
-                  placeholder="EX: SAFETY24, TOY-2024-X"
+                  placeholder="Saisissez votre clé d'accès"
                   disabled={isUnlocking || isSuccess}
                   className="w-full px-4 py-3.5 bg-white border-2 border-slate-200 rounded-xl focus:border-[#EB0A1E] outline-none font-mono text-base uppercase font-bold text-center tracking-widest transition-all placeholder:text-slate-300 placeholder:font-sans placeholder:tracking-normal"
                   required

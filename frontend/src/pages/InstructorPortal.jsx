@@ -297,7 +297,11 @@ export default function InstructorPortal() {
       setNewSectorName('');
       toast.success("Secteur ajouté !");
       fetchSectors(token);
-    } catch (err) { toast.error("Erreur ou secteur déjà existant."); }
+    } catch (err) { 
+      // ON AFFICHE LE VRAI MESSAGE DU BACKEND ICI :
+      toast.error("Erreur Secteur : " + (err.response?.data?.message || err.message)); 
+      console.error(err);
+    }
   };
 
   const handleDeleteSector = async (id) => {
@@ -307,7 +311,11 @@ export default function InstructorPortal() {
       await axios.delete(`https://fdb-formations.vercel.app/api/sectors/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       toast.success("Secteur supprimé.");
       fetchSectors(token);
-    } catch (err) { toast.error("Erreur de suppression."); }
+    } catch (err) { 
+      // ON AFFICHE LE VRAI MESSAGE DU BACKEND ICI :
+      toast.error("Erreur Secteur : " + (err.response?.data?.message || err.message)); 
+      console.error(err);
+    }
   };
   
   if (!user) return null;
@@ -569,9 +577,6 @@ export default function InstructorPortal() {
                 <div className="flex gap-3 w-full lg:w-auto">
                   <button onClick={() => setIsSectorModalOpen(true)} className="flex-1 lg:flex-none px-6 py-2.5 bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-sm hover:bg-slate-200 transition-colors border border-slate-300">
                     ⚙️ Gérer Affectations
-                  </button>
-                  <button onClick={() => setIsSectorConfigModalOpen(true)} className="flex-1 lg:flex-none px-4 py-2.5 bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-sm hover:bg-slate-200 border border-slate-300">
-                    ⚙️ Gérer Secteurs
                   </button>
                   <button onClick={handleExportCSV} className="flex-1 lg:flex-none px-6 py-2.5 bg-[#111827] text-white font-black text-[10px] uppercase tracking-widest rounded-sm hover:bg-[#EB0A1E] transition-colors flex items-center justify-center gap-2 shadow-md">
                     <Download className="w-3.5 h-3.5" /> Export Excel
@@ -989,9 +994,10 @@ export default function InstructorPortal() {
           </div>
         </div>
       )}
+
+
       {/* ========================================================= */}
-      {/* MODALE : GESTION DES SECTEURS DES INSCRITS */}
-      {/* ========================================================= */}
+      {/* --- MODALE : GESTION DES AFFECTATIONS ET CRÉATION DE SECTEURS (UNIFIÉE) --- */}
       {isSectorModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white w-full max-w-2xl rounded-sm shadow-2xl animate-in zoom-in duration-200 flex flex-col max-h-[90vh] border-t-4 border-[#EB0A1E]">
@@ -999,82 +1005,64 @@ export default function InstructorPortal() {
             <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
               <div>
                 <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Gestion des Secteurs</h3>
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Modifiez l'affectation de vos {uniqueStudents.length} techniciens.</p>
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Créez des secteurs ou affectez vos {uniqueStudents.length} techniciens.</p>
               </div>
-              <button onClick={() => setIsSectorModalOpen(false)} className="w-8 h-8 bg-white border border-slate-300 rounded-sm text-slate-500 hover:bg-slate-200 hover:text-slate-900 font-bold transition-colors">
-                X
-              </button>
+              <button onClick={() => setIsSectorModalOpen(false)} className="w-8 h-8 bg-white border border-slate-300 rounded-sm text-slate-500 hover:bg-slate-200 hover:text-slate-900 font-bold">X</button>
             </div>
 
-            <div className="p-6 overflow-y-auto custom-scrollbar">
-              <div className="space-y-3">
-                {uniqueStudents.length === 0 ? (
-                  <p className="text-center text-slate-500 italic p-6">Aucun technicien inscrit pour le moment.</p>
-                ) : (
-                  uniqueStudents.map(student => (
-                    <div key={student.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-sm hover:border-[#EB0A1E] transition-colors gap-4">
-                      
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-sm bg-slate-200 border border-slate-300 flex items-center justify-center font-black text-slate-600 overflow-hidden shrink-0">
-                          {student.avatarUrl ? <img src={student.avatarUrl} className="w-full h-full object-cover"/> : student.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-900">{student.name}</p>
-                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{student.email}</p>
-                        </div>
-                      </div>
+            <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
+              
+              {/* BLOC 1 : CRÉATION ET SUPPRESSION DES SECTEURS */}
+              <div className="bg-slate-50 p-4 rounded-sm border border-slate-200">
+                <h4 className="text-xs font-black uppercase tracking-widest text-slate-900 mb-3">1. Configurer les secteurs disponibles</h4>
+                <form onSubmit={handleAddSector} className="flex gap-2 mb-4">
+                  <input type="text" value={newSectorName} onChange={e => setNewSectorName(e.target.value)} placeholder="Ajouter un secteur..." className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-sm text-sm outline-none focus:border-[#EB0A1E]" required />
+                  <button type="submit" className="px-4 py-2 bg-[#111827] text-white font-bold text-xs uppercase rounded-sm hover:bg-[#EB0A1E] transition-colors">+</button>
+                </form>
+                <div className="flex flex-wrap gap-2">
+                  {sectors.map(sec => (
+                    <span key={sec.id} className="flex items-center gap-2 px-2 py-1 bg-white border border-slate-200 text-xs font-bold text-slate-700 rounded-sm shadow-sm">
+                      {sec.name} <button onClick={() => handleDeleteSector(sec.id)} className="text-red-500 hover:text-red-700 font-black">×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
 
-                      <div className="shrink-0 w-full sm:w-48">
-                        <select 
-                          value={student.sector || ''} 
-                          onChange={(e) => handleUpdateSector(student.id, e.target.value)}
-                          className="w-full px-3 py-2 text-xs font-bold uppercase tracking-wider bg-white border border-slate-300 rounded-sm outline-none focus:border-[#EB0A1E] focus:ring-1 focus:ring-[#EB0A1E]"
-                        >
-                          <option value="">-- Non Assigné --</option>
+              {/* BLOC 2 : AFFECTATION DES TECHNICIENS */}
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-widest text-slate-900 mb-3">2. Affecter les collaborateurs</h4>
+                <div className="space-y-3">
+                  {uniqueStudents.length === 0 ? (
+                    <p className="text-center text-slate-500 italic p-6">Aucun technicien inscrit pour le moment.</p>
+                  ) : (
+                    uniqueStudents.map(student => (
+                      <div key={student.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white border border-slate-200 rounded-sm hover:border-[#EB0A1E] transition-colors gap-4 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-sm bg-slate-100 border border-slate-300 flex items-center justify-center font-black text-slate-600 overflow-hidden shrink-0">
+                            {student.avatarUrl ? <img src={student.avatarUrl} className="w-full h-full object-cover"/> : student.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900">{student.name}</p>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{student.email}</p>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 w-full sm:w-48">
+                          <select 
+                            value={student.sector || ''} 
+                            onChange={(e) => handleUpdateSector(student.id, e.target.value)}
+                            className="w-full px-3 py-2 text-xs font-bold uppercase tracking-wider bg-white border border-slate-300 rounded-sm outline-none focus:border-[#EB0A1E] focus:ring-1 focus:ring-[#EB0A1E]"
+                          >
+                            <option value="">-- Non Assigné --</option>
                             {sectors.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                          <option value="Autre">Autre</option>
-                        </select>
+                          </select>
+                        </div>
                       </div>
-
-                    </div>
-                  ))
-                )}
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end">
-              <button onClick={() => setIsSectorModalOpen(false)} className="px-6 py-2.5 bg-[#111827] text-white text-xs font-black uppercase tracking-widest rounded-sm hover:bg-[#EB0A1E] transition-colors">
-                Terminer
-              </button>
-            </div>
-            
-          </div>
-        </div>
-      )}
-
-      {/* NOUVEAU : MODALE DE GESTION DES SECTEURS DYNAMIQUES */}
-      {isSectorConfigModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md p-6 sm:p-8 rounded-sm shadow-2xl relative flex flex-col max-h-[80vh] border-t-4 border-[#EB0A1E]">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-black text-slate-900">Secteurs (Agences)</h3>
-              <button onClick={() => setIsSectorConfigModalOpen(false)} className="text-slate-400 hover:text-slate-900 font-bold">X</button>
-            </div>
-            
-            <form onSubmit={handleAddSector} className="mb-6 flex gap-2">
-              <input type="text" value={newSectorName} onChange={e => setNewSectorName(e.target.value)} placeholder="Ajouter un secteur..." className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-sm outline-none focus:border-[#EB0A1E]" required />
-              <button type="submit" className="px-4 py-2 bg-[#111827] text-white font-bold text-xs uppercase rounded-sm hover:bg-[#EB0A1E] transition-colors">+</button>
-            </form>
-
-            <div className="overflow-y-auto custom-scrollbar border border-slate-200 rounded-sm bg-slate-50 divide-y divide-slate-100">
-              {sectors.length === 0 ? <p className="p-4 text-center text-xs font-semibold text-slate-400">Aucun secteur configuré.</p> : 
-                sectors.map(sector => (
-                  <div key={sector.id} className="flex justify-between items-center p-3 bg-white">
-                    <span className="font-bold text-sm text-slate-700">{sector.name}</span>
-                    <button onClick={() => handleDeleteSector(sector.id)} className="text-slate-400 hover:text-red-600 font-bold">🗑️</button>
-                  </div>
-                ))
-              }
             </div>
           </div>
         </div>

@@ -13,7 +13,13 @@ exports.verifyToken = (req, res, next) => {
   try {
     // On décode le token avec notre clé secrète
     const verified = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = verified; // On stocke les infos (userId, role) dans la requête
+    // Les anciens jetons utilisent `id`, alors que les contrôleurs attendent `userId`.
+    // Normaliser ici garde les jetons déjà émis compatibles avec toutes les routes.
+    req.user = {
+      ...verified,
+      userId: verified.userId ?? verified.id,
+      id: verified.id ?? verified.userId,
+    };
     next(); // Le token est bon, on laisse passer à la suite !
   } catch (error) {
     res.status(400).json({ message: "Token invalide ou expiré." });
