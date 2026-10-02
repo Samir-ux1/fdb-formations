@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
-const userRoutes = require('./src/routes/userRoutes');
 require('dotenv').config();
+const prisma = require('./src/config/prisma');
+const userRoutes = require('./src/routes/userRoutes');
 const startCronJobs = require('./src/cron/reminderJob');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -88,10 +89,21 @@ app.get('/api/sectors', async (req, res) => {
 });
 
 app.post('/api/sectors', async (req, res) => {
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  if (!name) {
+    return res.status(400).json({ message: "Le nom du secteur est obligatoire." });
+  }
+
   try {
-    const newSector = await prisma.sector.create({ data: { name: req.body.name } });
-    res.json(newSector);
-  } catch (error) { res.status(400).json({ message: "Ce secteur existe peut-être déjà." }); }
+    const newSector = await prisma.sector.create({ data: { name } });
+    res.status(201).json(newSector);
+  } catch (error) {
+    console.error("Erreur lors de l'ajout du secteur :", error);
+    if (error.code === 'P2002') {
+      return res.status(409).json({ message: "Un secteur portant ce nom existe déjà." });
+    }
+    return res.status(500).json({ message: "Impossible d'ajouter le secteur." });
+  }
 });
 
 app.delete('/api/sectors/:id', async (req, res) => {
