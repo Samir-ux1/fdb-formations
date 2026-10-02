@@ -153,13 +153,13 @@ export default function Dashboard() {
                        : "Expert";
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto font-sans text-slate-800 space-y-8 animate-in fade-in duration-300">
+    <div className="p-3 sm:p-4 md:p-8 max-w-7xl mx-auto font-sans text-slate-800 space-y-6 md:space-y-8 animate-in fade-in duration-300">
       
       {/* Toyota Top Header Profile Banner */}
-      <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-xs relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+      <div className="bg-white rounded-3xl p-4 sm:p-6 md:p-8 border border-slate-200 shadow-xs relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-5 sm:gap-6">
   
   {/* Partie Gauche : Avatar + Infos Utilisateur */}
-  <div className="flex items-center gap-6 relative z-10 min-w-0">
+  <div className="flex items-center gap-3 sm:gap-6 relative z-10 min-w-0">
     <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#EB0A1E] text-white flex items-center justify-center font-black text-xl sm:text-2xl shadow-md overflow-hidden shrink-0">
       {user.avatarUrl ? (
         <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
@@ -179,7 +179,7 @@ export default function Dashboard() {
   </div>
 
   {/* Partie Droite : Bouton Portail Instructeur + Jauge de Progression (Poussée à droite) */}
-  <div className="flex flex-wrap items-center justify-end gap-4 relative z-10 w-full md:w-auto ml-auto">
+  <div className="flex flex-wrap items-center justify-between md:justify-end gap-3 sm:gap-4 relative z-10 w-full md:w-auto ml-auto">
     {user.role === 'INSTRUCTOR' && (
       <button
         onClick={() => navigate('/instructor')}
@@ -227,10 +227,10 @@ export default function Dashboard() {
 </div>
 
       {/* 4 Statistics Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         
         {/* CARTE 1 : Cours Débloqués */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-3 sm:p-5 rounded-3xl border border-slate-200 shadow-sm">
           <div className="w-10 h-10 rounded-xl bg-red-50 text-[#EB0A1E] flex items-center justify-center mb-3">
             <GraduationCap className="w-5 h-5" />
           </div>
@@ -239,7 +239,7 @@ export default function Dashboard() {
         </div>
 
         {/* CARTE 2 : Formations Validées */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-3 sm:p-5 rounded-3xl border border-slate-200 shadow-sm">
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
             <CheckCircle2 className="w-5 h-5" />
           </div>
@@ -248,7 +248,7 @@ export default function Dashboard() {
         </div>
 
         {/* CARTE 3 : Temps Apprentissage (Dynamique !) */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-3 sm:p-5 rounded-3xl border border-slate-200 shadow-sm">
           <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center mb-3">
             <Clock className="w-5 h-5" />
           </div>
@@ -257,7 +257,7 @@ export default function Dashboard() {
         </div>
 
         {/* CARTE 4 : Niveau Technique (Dynamique !) */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-3 sm:p-5 rounded-3xl border border-slate-200 shadow-sm">
           <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
             <Award className="w-5 h-5" />
           </div>
@@ -274,23 +274,23 @@ export default function Dashboard() {
         <div className="lg:col-span-2 space-y-6">
           
           {!activeCourse ? (
-            <div className="bg-white p-12 rounded-3xl shadow-sm border border-slate-200 text-center flex flex-col items-center">
+            <div className="bg-white p-6 sm:p-12 rounded-3xl shadow-sm border border-slate-200 text-center flex flex-col items-center">
               <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-4xl mb-6">📚</div>
               <h2 className="text-2xl font-bold mb-2">Prêt à apprendre ?</h2>
               <p className="text-slate-500 mb-8 max-w-md">Vous n'avez pas encore de formation. Découvrez notre catalogue et utilisez votre clé d'accès pour commencer.</p>
-              <button onClick={() => navigate('/catalog')} className="px-8 py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-all cursor-pointer">
+              <button onClick={() => navigate('/catalog')} className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-all cursor-pointer">
                 Explorer le catalogue
               </button>
             </div>
           ) : (
             <>
               {/* Hero "Continue Course" Card */}
-              <div className="bg-[#111827] text-white rounded-3xl p-6 md:p-8 shadow-md border border-slate-800 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+              <div className="bg-[#111827] text-white rounded-3xl p-5 sm:p-6 md:p-8 shadow-md border border-slate-800 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 sm:gap-6">
                 <div className="space-y-2 relative z-10 max-w-md">
                   <span className="px-3 py-1 bg-[#EB0A1E] text-white text-[10px] font-black uppercase tracking-wider rounded-full">
                     Reprendre la formation
-                  </span><br /><br />
-                  <h3 className="text-xl sm:text-2xl font-black text-white">{activeCourse.title}</h3>
+                  </span>
+                  <h3 className="mt-3 text-xl sm:text-2xl font-black text-white">{activeCourse.title}</h3>
                   <p className="text-xs text-slate-400 line-clamp-2">{activeCourse.description}</p>
                   <div className="flex items-center gap-3 pt-1 text-xs text-slate-300 font-semibold">
                     <span>Progression : {activeCourse.progress || 0}%</span>
@@ -301,7 +301,7 @@ export default function Dashboard() {
 
                 <button
                   onClick={() => navigate(`/courses/${activeCourse.id}`)}
-                  className="px-6 py-3.5 bg-[#EB0A1E] hover:bg-[#BD0014] text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-lg transition-all flex items-center gap-2 cursor-pointer shrink-0 active:scale-95"
+                  className="w-full sm:w-auto px-6 py-3.5 bg-[#EB0A1E] hover:bg-[#BD0014] text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 active:scale-95"
                 >
                   <Play className="w-4 h-4 fill-white" />
                   <span>Continuer le cours</span>
@@ -310,14 +310,14 @@ export default function Dashboard() {
 
               {/* Ongoing Courses List */}
               <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-xs">
-                <div className="flex justify-between items-center mb-5">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5">
                   <div>
                     <h2 className="text-xl font-bold text-slate-900">Mes Formations Débloquées</h2>
                     <p className="text-xs text-slate-500">Accédez directement à vos supports vidéos et examens</p>
                   </div>
                   <button
                     onClick={() => navigate('/catalog')}
-                    className="text-xs font-bold text-[#EB0A1E] hover:underline flex items-center gap-1 cursor-pointer"
+                    className="self-start text-xs font-bold text-[#EB0A1E] hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <span>Catalogue</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -330,7 +330,7 @@ export default function Dashboard() {
                       key={course.id}
                       className="p-4 rounded-2xl border border-slate-200 hover:border-red-200 bg-white hover:bg-slate-50 transition-all flex flex-col sm:flex-row justify-between sm:items-center gap-4"
                     >
-                      <div className="flex items-center gap-6 min-w-0">
+                      <div className="flex items-center gap-3 sm:gap-6 min-w-0">
                         <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
                           <img src={course.imageUrl || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800"} alt={course.title} className="w-full h-full object-cover" />
                         </div>
@@ -349,7 +349,7 @@ export default function Dashboard() {
 
                       <button
                         onClick={() => navigate(`/courses/${course.id}`)}
-                        className="px-4 py-2.5 bg-[#111827] hover:bg-[#EB0A1E] text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-xs shrink-0 cursor-pointer"
+                        className="w-full sm:w-auto min-h-11 px-4 py-2.5 bg-[#111827] hover:bg-[#EB0A1E] text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-xs shrink-0 cursor-pointer"
                       >
                         <Play className="w-3.5 h-3.5" />
                         <span>{course.progress === 100 ? "Revoir" : "Accéder"}</span>
@@ -371,7 +371,7 @@ export default function Dashboard() {
                 completedCourses.map((course) => (
                   <div
                     key={course.id}
-                    className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 flex items-center justify-between gap-3"
+                    className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
@@ -385,7 +385,7 @@ export default function Dashboard() {
 
                     <button
                       onClick={() => handleDownloadCertificate(course.title)}
-                      className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+                      className="w-full sm:w-auto min-h-11 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-xs cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Attestation</span>
