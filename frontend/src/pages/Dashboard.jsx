@@ -1,3 +1,4 @@
+import { API_URL } from '../config/api';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -50,7 +51,7 @@ export default function Dashboard() {
 
     const fetchMyCourses = async () => {
       try {
-        const response = await axios.get('https://fdb-formations.vercel.app/api/courses/my-courses', {
+        const response = await axios.get(`${API_URL}/courses/my-courses`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         
@@ -104,7 +105,7 @@ export default function Dashboard() {
     const token = localStorage.getItem('token');
     try {
       // Appel API fictif ou réel pour valider la clé d'accès (adaptable selon votre route backend)
-      await axios.post('https://fdb-formations.vercel.app/api/courses/unlock', { key: quickKey.trim() }, {
+      await axios.post(`${API_URL}/courses/unlock`, { key: quickKey.trim() }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

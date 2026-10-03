@@ -7,6 +7,12 @@ exports.addLesson = async (req, res) => {
     const { title, content, videoUrl, pdfUrl, order, quizQuestionCount, quizEasyQuestionCount = 0, quizMediumQuestionCount = 0, quizHardQuestionCount = 0 } = req.body;
     const courseId = parseInt(req.params.courseId);
 
+    const course = await prisma.course.findUnique({ where: { id: courseId }, select: { instructorId: true } });
+    if (!course) return res.status(404).json({ message: 'Formation introuvable.' });
+    if (req.user.role !== 'ADMIN' && course.instructorId !== req.user.userId) {
+      return res.status(403).json({ message: 'Accès refusé.' });
+    }
+
     const newLesson = await prisma.lesson.create({
       data: {
         title,
@@ -34,6 +40,12 @@ exports.updateLesson = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
     const lessonId = parseInt(req.params.lessonId);
+    const course = await prisma.course.findUnique({ where: { id: courseId }, select: { instructorId: true } });
+    const existingLesson = await prisma.lesson.findFirst({ where: { id: lessonId, courseId } });
+    if (!course || !existingLesson) return res.status(404).json({ message: 'Leçon introuvable.' });
+    if (req.user.role !== 'ADMIN' && course.instructorId !== req.user.userId) {
+      return res.status(403).json({ message: 'Accès refusé.' });
+    }
     
     // 1. On s'assure de bien récupérer quizQuestionCount ICI AUSSI
     const { title, content, videoUrl, pdfUrl, order, quizQuestionCount, quizEasyQuestionCount = 0, quizMediumQuestionCount = 0, quizHardQuestionCount = 0 } = req.body;
@@ -66,9 +78,11 @@ exports.deleteLesson = async (req, res) => {
     const lessonId = parseInt(req.params.lessonId);
 
     const course = await prisma.course.findUnique({ where: { id: courseId } });
-    if (!course || course.instructorId !== req.user.userId) return res.status(403).json({ message: "Accès refusé." });
+    const lesson = await prisma.lesson.findFirst({ where: { id: lessonId, courseId } });
+    if (!course || !lesson) return res.status(404).json({ message: 'Leçon introuvable.' });
+    if (req.user.role !== 'ADMIN' && course.instructorId !== req.user.userId) return res.status(403).json({ message: "Accès refusé." });
 
-    await prisma.lesson.delete({ where: { id: lessonId } });
+    await prisma.lesson.delete({ where: { id: lesson.id } });
     res.status(200).json({ message: "Leçon supprimée." });
   } catch (error) {
     res.status(500).json({ message: "Erreur.", error: error.message });
@@ -81,6 +95,18 @@ exports.toggleProgress = async (req, res) => {
     const lessonId = parseInt(req.params.lessonId);
     const userId = req.user.userId;
     const { score } = req.body; 
+
+    const lesson = await prisma.lesson.findUnique({ where: { id: lessonId }, select: { courseId: true } });
+    if (!lesson) return res.status(404).json({ message: 'Leçon introuvable.' });
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId, courseId: lesson.courseId } },
+      select: { status: true }
+    });
+    if (!enrollment) return res.status(403).json({ message: 'Vous devez être inscrit à cette formation.' });
+    if (enrollment.status !== 'IN_PROGRESS') return res.status(403).json({ message: 'Cette formation n’est plus accessible.' });
+    if (score !== undefined && (!Number.isFinite(Number(score)) || Number(score) < 0 || Number(score) > 20)) {
+      return res.status(400).json({ message: 'La note doit être comprise entre 0 et 20.' });
+    }
 
     const existingProgress = await prisma.lessonProgress.findUnique({
       where: { userId_lessonId: { userId, lessonId } }

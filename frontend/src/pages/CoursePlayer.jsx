@@ -343,7 +343,7 @@ export default function CoursePlayer() {
   const toggleComplete = async (lessonId, quizScore = 20) => {
     try {
       const activeToken = token || localStorage.getItem('token'); 
-      await axios.post(`https://fdb-formations.vercel.app/api/courses/${courseId}/lessons/${lessonId}/progress`, 
+      await axios.post(`${API_URL}/courses/${courseId}/lessons/${lessonId}/progress`,
       { score: quizScore }, { headers: { Authorization: `Bearer ${activeToken}` } });
       fetchCourseData(); 
     } catch (error) { console.error(error); }
@@ -425,7 +425,7 @@ export default function CoursePlayer() {
 
     try {
       const activeToken = token || localStorage.getItem('token'); 
-      const response = await axios.post(`https://fdb-formations.vercel.app/api/courses/${courseId}/grades`, {
+      const response = await axios.post(`${API_URL}/courses/${courseId}/grades`, {
         quizScore: averageQuizScore, examScore
       }, { headers: { Authorization: `Bearer ${activeToken}` } });
       

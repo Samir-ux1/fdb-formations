@@ -1,3 +1,4 @@
+import { API_URL } from '../config/api';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -45,7 +46,7 @@ export default function CourseManager() {
   const fetchCourse = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`https://fdb-formations.vercel.app/api/courses/${courseId}`, {
+      const response = await axios.get(`${API_URL}/courses/${courseId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCourse(response.data);
@@ -66,7 +67,7 @@ export default function CourseManager() {
   const fetchStudents = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`https://fdb-formations.vercel.app/api/courses/${courseId}/students`, {
+      const response = await axios.get(`${API_URL}/courses/${courseId}/students`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStudents(response.data);
@@ -78,7 +79,7 @@ export default function CourseManager() {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('https://fdb-formations.vercel.app/api/categories');
+      const response = await axios.get(`${API_URL}/categories`);
       setCategories(response.data);
     } catch (error) {
       console.error("Échec du chargement des catégories :", error);
@@ -99,7 +100,7 @@ export default function CourseManager() {
     event.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`https://fdb-formations.vercel.app/api/courses/${courseId}/exam-question-counts`, examQuestionCounts, {
+      await axios.put(`${API_URL}/courses/${courseId}/exam-question-counts`, examQuestionCounts, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Répartition de l’examen enregistrée.');
@@ -120,7 +121,7 @@ export default function CourseManager() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`https://fdb-formations.vercel.app/api/courses/${courseId}/exam-questions`, newExamQ, {
+      await axios.post(`${API_URL}/courses/${courseId}/exam-questions`, newExamQ, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Question d'examen ajoutée !");
@@ -135,7 +136,7 @@ export default function CourseManager() {
     if (!window.confirm("Voulez-vous vraiment supprimer cette question ?")) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`https://fdb-formations.vercel.app/api/courses/${courseId}/exam-questions/${questionId}`, {
+      await axios.delete(`${API_URL}/courses/${courseId}/exam-questions/${questionId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchCourse(); 
@@ -149,7 +150,7 @@ export default function CourseManager() {
     if (!window.confirm("Voulez-vous vraiment effacer la progression de cet étudiant et lui donner une seconde chance ?")) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`https://fdb-formations.vercel.app/api/courses/${courseId}/students/${studentId}/reset`, {}, {
+      await axios.post(`${API_URL}/courses/${courseId}/students/${studentId}/reset`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Formation réinitialisée pour l'étudiant !");
@@ -163,7 +164,7 @@ export default function CourseManager() {
     if (!window.confirm(`Voulez-vous vraiment passer cet étudiant en : ${status === 'VALIDATED' ? 'VALIDÉ' : 'ÉCHEC'} ?`)) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`https://fdb-formations.vercel.app/api/courses/${courseId}/students/${studentId}/status`, { status }, {
+      await axios.post(`${API_URL}/courses/${courseId}/students/${studentId}/status`, { status }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Statut mis à jour !");
@@ -179,7 +180,7 @@ export default function CourseManager() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`https://fdb-formations.vercel.app/api/courses/${courseId}`, editCourseData, {
+      await axios.put(`${API_URL}/courses/${courseId}`, editCourseData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Formation mise à jour !");
@@ -194,7 +195,7 @@ export default function CourseManager() {
     if (!window.confirm("⚠️ DANGER : Êtes-vous sûr de vouloir supprimer TOUTE la formation, ses vidéos et ses étudiants ?")) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`https://fdb-formations.vercel.app/api/courses/${courseId}`, {
+      await axios.delete(`${API_URL}/courses/${courseId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Formation supprimée.");
@@ -243,9 +244,9 @@ export default function CourseManager() {
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
       if (editingLessonId) {
-        await axios.put(`https://fdb-formations.vercel.app/api/courses/${courseId}/lessons/${editingLessonId}`, dataToSend, config);
+        await axios.put(`${API_URL}/courses/${courseId}/lessons/${editingLessonId}`, dataToSend, config);
       } else {
-        await axios.post(`https://fdb-formations.vercel.app/api/courses/${courseId}/lessons`, dataToSend, config);
+        await axios.post(`${API_URL}/courses/${courseId}/lessons`, dataToSend, config);
       }
       
       setEditingLessonId(null);
@@ -290,7 +291,7 @@ export default function CourseManager() {
     if (!window.confirm("Supprimer ce chapitre ?")) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`https://fdb-formations.vercel.app/api/courses/${courseId}/lessons/${lessonId}`, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.delete(`${API_URL}/courses/${courseId}/lessons/${lessonId}`, { headers: { Authorization: `Bearer ${token}` } });
       fetchCourse();
     } catch (error) {
       toast.error(error.response?.data?.message || "Impossible de supprimer ce chapitre.");
@@ -302,7 +303,7 @@ export default function CourseManager() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`https://fdb-formations.vercel.app/api/courses/${courseId}/lessons/${managingQuizForLessonId}/questions`, newLessonQ, {
+      await axios.post(`${API_URL}/courses/${courseId}/lessons/${managingQuizForLessonId}/questions`, newLessonQ, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNewLessonQ({ questionText: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'MOYEN' });
@@ -317,7 +318,7 @@ export default function CourseManager() {
     if (!window.confirm("Supprimer cette question ?")) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`https://fdb-formations.vercel.app/api/courses/${courseId}/lessons/${managingQuizForLessonId}/questions/${questionId}`, {
+      await axios.delete(`${API_URL}/courses/${courseId}/lessons/${managingQuizForLessonId}/questions/${questionId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchCourse();
@@ -903,7 +904,7 @@ export default function CourseManager() {
                                   const val = document.getElementById(`field-${student.user?.id}`).value;
                                   if(val === '') return;
                                   try {
-                                    await axios.put(`https://fdb-formations.vercel.app/api/courses/${courseId}/students/${student.user?.id}/field-grade`, { fieldGrade: val }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+                                    await axios.put(`${API_URL}/courses/${courseId}/students/${student.user?.id}/field-grade`, { fieldGrade: val }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
                                     toast.success("Note de terrain enregistrée !");
                                     fetchStudents();
                                   } catch(err) { 

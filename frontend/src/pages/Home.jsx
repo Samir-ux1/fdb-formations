@@ -1,3 +1,4 @@
+import { API_URL } from '../config/api';
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -72,13 +73,13 @@ export default function Home() {
     const fetchCourses = async () => {
       try {
         // A. Les cours "À la une" pour tout le monde (visiteurs inclus)
-        const response = await axios.get('https://fdb-formations.vercel.app/api/courses');
+        const response = await axios.get(`${API_URL}/courses`);
         setFeaturedCourses(response.data.slice(0, 3)); 
 
         // B. NOUVEAU : Si l'utilisateur est connecté, on calcule ses cours "En cours"
         if (activeUser) {
           const token = localStorage.getItem('token');
-          const myCoursesRes = await axios.get('https://fdb-formations.vercel.app/api/courses/my-courses', {
+          const myCoursesRes = await axios.get(`${API_URL}/courses/my-courses`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           

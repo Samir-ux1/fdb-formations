@@ -1,3 +1,4 @@
+import { API_URL } from '../config/api';
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -34,7 +35,7 @@ export default function RedeemModal() {
     }
 
     try {
-      const coursesRes = await axios.get('https://fdb-formations.vercel.app/api/courses');
+      const coursesRes = await axios.get(`${API_URL}/courses`);
       const matchedCourse = coursesRes.data.find(c => c.accessKey.toUpperCase() === formattedKey);
 
       if (!matchedCourse) {
@@ -43,7 +44,7 @@ export default function RedeemModal() {
         return;
       }
 
-      await axios.post(`https://fdb-formations.vercel.app/api/courses/${matchedCourse.id}/unlock`, { key: formattedKey }, {
+      await axios.post(`${API_URL}/courses/${matchedCourse.id}/unlock`, { key: formattedKey }, {
         headers: { Authorization: `Bearer ${activeToken}` }
       });
 

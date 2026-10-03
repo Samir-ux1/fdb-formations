@@ -1,3 +1,4 @@
+import { API_URL } from '../config/api';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -104,7 +105,7 @@ export default function Account() {
     try {
       const token = localStorage.getItem('token');
       
-      const response = await axios.put('https://fdb-formations.vercel.app/api/users/profile', formData, {
+      const response = await axios.put(`${API_URL}/users/profile`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

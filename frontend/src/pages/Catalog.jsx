@@ -1,3 +1,4 @@
+import { API_URL } from '../config/api';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -45,13 +46,13 @@ export default function Catalog() {
         const activeToken = token || localStorage.getItem('token');
         
         const requests = [
-          axios.get('https://fdb-formations.vercel.app/api/courses'),
-          axios.get('https://fdb-formations.vercel.app/api/categories')
+          axios.get(`${API_URL}/courses`),
+          axios.get(`${API_URL}/categories`)
         ];
 
         if (activeToken) {
           requests.push(
-            axios.get('https://fdb-formations.vercel.app/api/courses/my-courses', {
+            axios.get(`${API_URL}/courses/my-courses`, {
               headers: { Authorization: `Bearer ${activeToken}` }
             })
           );
@@ -88,7 +89,7 @@ export default function Catalog() {
         return;
       }
 
-      await axios.post(`https://fdb-formations.vercel.app/api/courses/${selectedCourse.id}/unlock`, { key: accessKey }, { 
+      await axios.post(`${API_URL}/courses/${selectedCourse.id}/unlock`, { key: accessKey }, {
         headers: { Authorization: `Bearer ${activeToken}` } 
       });
 

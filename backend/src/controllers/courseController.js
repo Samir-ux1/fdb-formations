@@ -40,11 +40,12 @@ exports.createCourse = async (req, res) => {
 exports.getAllCourses = async (req, res) => {
   try {
     const courses = await prisma.course.findMany({
-      include: {
-        // On inclut juste le nom du professeur associé à la formation
-        instructor: {
-          select: { name: true } },
-          category: true
+      select: {
+        id: true, title: true, description: true, imageUrl: true, price: true,
+        level: true, duration: true, timeLimitDays: true, passingScore: true,
+        createdAt: true, categoryId: true, instructorId: true,
+        instructor: { select: { name: true } },
+        category: true
       }
     });
     res.status(200).json(courses);
@@ -55,7 +56,6 @@ exports.getAllCourses = async (req, res) => {
 
 // --- DÉBLOQUER UNE FORMATION (AVEC LA CLÉ) ---
 exports.unlockCourse = async (req, res) => {
-    console.log(req.body);
   try {
     const { courseId } = req.params;
     const { key } = req.body; // La clé envoyée par l'étudiant
@@ -68,12 +68,7 @@ exports.unlockCourse = async (req, res) => {
     }
 
     // 2. Vérifier la clé
-    console.log("========== DEBUG ==========");
-    console.log("Clé envoyée :", key);
-    console.log("Clé enregistrée :", course.accessKey);
-    console.log("Objet course :", course);
-    console.log("===========================");
-    if (course.accessKey !== key) {
+    if (typeof key !== 'string' || course.accessKey !== key.trim()) {
       return res.status(403).json({ message: "Clé d'accès incorrecte !" });
     }
 
@@ -130,6 +125,7 @@ exports.getMyCourses = async (req, res) => {
 
     const myCourses = enrollments.map(enrollment => ({
       ...enrollment.course,
+      accessKey: undefined,
       learningTimeSeconds: enrollment.learningTimeSeconds
     }));
     res.status(200).json(myCourses);
@@ -182,32 +178,32 @@ exports.getCourseById = async (req, res) => {
       where: { userId_courseId: { userId, courseId } }
     });
 
-    if (!isEnrolled && req.user.role !== 'INSTRUCTOR') {
-      return res.status(403).json({ message: "Accès refusé. Vous devez débloquer ce cours." });
-    }
-
-    // 2. On récupère le cours ET ses leçons (triées par ordre)
     const course = await prisma.course.findUnique({
       where: { id: courseId },
       include: {
         lessons: {
           orderBy: { order: 'asc' },
           include: {
-            progresses: { where: { userId: userId } },
-            questions: true // <-- NOUVEAU : On inclut les questions du quiz !
+            progresses: { where: { userId } },
+            questions: true
           }
         },
         instructor: { select: { name: true } },
-        examQuestions: true // <-- NOUVEAU : On inclut les questions de l'examen !
+        examQuestions: true
       }
     });
 
-    if (!course) {
-      return res.status(404).json({ message: "Formation introuvable." });
+    if (!course) return res.status(404).json({ message: "Formation introuvable." });
+    if (req.user.role === 'INSTRUCTOR' && course.instructorId !== userId && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
+    if (!isEnrolled && req.user.role !== 'INSTRUCTOR' && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ message: "Accès refusé. Vous devez débloquer ce cours." });
     }
 
     res.status(200).json({ 
-      ...course, 
+      ...course,
+      ...(req.user.role === 'INSTRUCTOR' || req.user.role === 'ADMIN' ? {} : { accessKey: undefined }),
       enrollment: isEnrolled 
     });
     
@@ -393,6 +389,14 @@ exports.validateCourse = async (req, res) => {
 exports.getCourseStudents = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { instructorId: true }
+    });
+    if (!course) return res.status(404).json({ message: 'Formation introuvable.' });
+    if (req.user.role !== 'ADMIN' && course.instructorId !== req.user.userId) {
+      return res.status(403).json({ message: 'Accès refusé.' });
+    }
     const enrollments = await prisma.enrollment.findMany({
       where: { courseId },
       include: {
@@ -428,10 +432,18 @@ exports.submitGrades = async (req, res) => {
     const userId = req.user.userId;
     const { quizScore, examScore } = req.body; // Les notes sont maintenant sur 20
 
+    if (![quizScore, examScore].every(value => Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 20)) {
+      return res.status(400).json({ message: 'Les notes doivent être comprises entre 0 et 20.' });
+    }
+
     // On récupère d'abord l'inscription pour voir s'il y a une note de terrain
     const enrollment = await prisma.enrollment.findUnique({
       where: { userId_courseId: { userId, courseId } }
     });
+    if (!enrollment) return res.status(404).json({ message: 'Inscription introuvable.' });
+    if (enrollment.status !== 'IN_PROGRESS') {
+      return res.status(400).json({ message: 'Cette formation a déjà été évaluée.' });
+    }
 
     let finalGrade = 0;
     if (enrollment.fieldGrade !== null) {
@@ -471,6 +483,15 @@ exports.resetStudent = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
     const studentId = parseInt(req.params.studentId);
+
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId: studentId, courseId } },
+      select: { course: { select: { instructorId: true } } }
+    });
+    if (!enrollment) return res.status(404).json({ message: 'Inscription introuvable.' });
+    if (req.user.role !== 'ADMIN' && enrollment.course.instructorId !== req.user.userId) {
+      return res.status(403).json({ message: 'Accès refusé.' });
+    }
 
     // 1. Remettre l'inscription à zéro
     await prisma.enrollment.update({
@@ -624,6 +645,18 @@ exports.overrideStudentStatus = async (req, res) => {
     const studentId = parseInt(req.params.studentId);
     const { status } = req.body; // 'VALIDATED' ou 'FAILED'
 
+    if (!['VALIDATED', 'FAILED'].includes(status)) {
+      return res.status(400).json({ message: 'Statut invalide.' });
+    }
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId: studentId, courseId } },
+      select: { course: { select: { instructorId: true } } }
+    });
+    if (!enrollment) return res.status(404).json({ message: 'Inscription introuvable.' });
+    if (req.user.role !== 'ADMIN' && enrollment.course.instructorId !== req.user.userId) {
+      return res.status(403).json({ message: 'Accès refusé.' });
+    }
+
     await prisma.enrollment.update({
       where: { userId_courseId: { userId: studentId, courseId } },
       data: { 
@@ -645,7 +678,18 @@ exports.updateFieldGrade = async (req, res) => {
     const studentId = parseInt(req.params.studentId);
     const fieldGrade = parseFloat(req.body.fieldGrade);
 
-    const enrollment = await prisma.enrollment.findUnique({ where: { userId_courseId: { userId: studentId, courseId } } });
+    if (!Number.isFinite(fieldGrade) || fieldGrade < 0 || fieldGrade > 20) {
+      return res.status(400).json({ message: 'La note doit être comprise entre 0 et 20.' });
+    }
+
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId: studentId, courseId } },
+      include: { course: { select: { instructorId: true } } }
+    });
+    if (!enrollment) return res.status(404).json({ message: 'Inscription introuvable.' });
+    if (req.user.role !== 'ADMIN' && enrollment.course.instructorId !== req.user.userId) {
+      return res.status(403).json({ message: 'Accès refusé.' });
+    }
     
     let finalGrade = enrollment.finalGrade;
     let isValidated = enrollment.isValidated;

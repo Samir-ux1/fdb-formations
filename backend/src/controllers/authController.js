@@ -61,7 +61,14 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     // 1. Chercher l'utilisateur
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true, name: true, email: true, password: true, role: true, status: true,
+        isEmailVerified: true, firstName: true, lastName: true, birthDate: true,
+        phone: true, avatarUrl: true, sector: true
+      }
+    });
     if (!user) {
       console.log("❌ ERREUR : Utilisateur non trouvé dans la base.");
       return res.status(401).json({ message: "Adresse email introuvable." });
@@ -97,7 +104,21 @@ exports.login = async (req, res) => {
     );
 
     console.log("✅ Connexion réussie !");
-    return res.status(200).json({ token, user });
+    const publicUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      isEmailVerified: user.isEmailVerified,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      birthDate: user.birthDate,
+      phone: user.phone,
+      avatarUrl: user.avatarUrl,
+      sector: user.sector
+    };
+    return res.status(200).json({ token, user: publicUser });
 
   } catch (error) {
     console.error("🔥 ERREUR FATALE LORS DU LOGIN :", error);

@@ -57,6 +57,7 @@ const authRoutes = require('./src/routes/authRoutes');
 const courseRoutes = require('./src/routes/courseRoutes');
 const categoryRoutes = require('./src/routes/categoryRoutes'); 
 const cronRoutes = require('./src/routes/cronRoutes');
+const sectorRoutes = require('./src/routes/sectorRoutes');
 
 // Utilisation des routes
 app.use('/api/auth', authRoutes);
@@ -64,6 +65,7 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/cron', cronRoutes);
+app.use('/api/sectors', sectorRoutes);
 
 // Route de test
 app.get('/', (req, res) => {
@@ -74,41 +76,6 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Serveur démarré sur le port ${PORT}`);
-});
-
-// ==========================================
-// ROUTES POUR GÉRER LES SECTEURS DYNAMIQUES
-// ==========================================
-app.get('/api/sectors', async (req, res) => {
-  try {
-    const sectors = await prisma.sector.findMany({ orderBy: { name: 'asc' } });
-    res.json(sectors);
-  } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-app.post('/api/sectors', async (req, res) => {
-  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
-  if (!name) {
-    return res.status(400).json({ message: "Le nom du secteur est obligatoire." });
-  }
-
-  try {
-    const newSector = await prisma.sector.create({ data: { name } });
-    res.status(201).json(newSector);
-  } catch (error) {
-    console.error("Erreur lors de l'ajout du secteur :", error);
-    if (error.code === 'P2002') {
-      return res.status(409).json({ message: "Un secteur portant ce nom existe déjà." });
-    }
-    return res.status(500).json({ message: "Impossible d'ajouter le secteur." });
-  }
-});
-
-app.delete('/api/sectors/:id', async (req, res) => {
-  try {
-    await prisma.sector.delete({ where: { id: parseInt(req.params.id) } });
-    res.json({ message: "Secteur supprimé" });
-  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 module.exports = app;
