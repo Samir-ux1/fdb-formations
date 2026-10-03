@@ -94,48 +94,26 @@ exports.toggleProgress = async (req, res) => {
   try {
     const lessonId = parseInt(req.params.lessonId);
     const userId = req.user.userId;
-    const { score } = req.body; 
-
-    const lesson = await prisma.lesson.findUnique({ where: { id: lessonId }, select: { courseId: true } });
-    if (!lesson) return res.status(404).json({ message: 'Leçon introuvable.' });
+    const courseId = Number.parseInt(req.params.courseId, 10);
+    const lesson = await prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { courseId: true, questions: { select: { id: true } } }
+    });
+    if (!lesson || lesson.courseId !== courseId) return res.status(404).json({ message: 'Leçon introuvable.' });
+    if (lesson.questions.length) return res.status(400).json({ message: 'Les quiz doivent être soumis via le correcteur sécurisé.' });
     const enrollment = await prisma.enrollment.findUnique({
       where: { userId_courseId: { userId, courseId: lesson.courseId } },
       select: { status: true }
     });
     if (!enrollment) return res.status(403).json({ message: 'Vous devez être inscrit à cette formation.' });
     if (enrollment.status !== 'IN_PROGRESS') return res.status(403).json({ message: 'Cette formation n’est plus accessible.' });
-    if (score !== undefined && (!Number.isFinite(Number(score)) || Number(score) < 0 || Number(score) > 20)) {
-      return res.status(400).json({ message: 'La note doit être comprise entre 0 et 20.' });
-    }
-
-    const existingProgress = await prisma.lessonProgress.findUnique({
-      where: { userId_lessonId: { userId, lessonId } }
+    const progress = await prisma.lessonProgress.upsert({
+      where: { userId_lessonId: { userId, lessonId } },
+      create: { userId, lessonId, score: 20 },
+      update: { score: 20 },
+      select: { score: true }
     });
-
-    // 1. Si on a DÉJÀ une progression
-    if (existingProgress) {
-      if (score !== undefined) {
-        // S'il refait le quiz, on MET À JOUR sa note (on ne l'efface surtout pas !)
-        const newScore = parseFloat(score);
-        await prisma.lessonProgress.update({
-          where: { id: existingProgress.id },
-          data: { score: newScore }
-        });
-        return res.status(200).json({ completed: true, score: newScore });
-      } else {
-        // S'il clique sur "Annuler" pour une vidéo simple (sans quiz), on l'efface
-        await prisma.lessonProgress.delete({ where: { id: existingProgress.id } });
-        return res.status(200).json({ completed: false });
-      }
-    } 
-    // 2. Si c'est la PREMIÈRE FOIS qu'il termine la leçon
-    else {
-      const newScore = score !== undefined ? parseFloat(score) : 20; // 20/20 par défaut si pas de quiz
-      await prisma.lessonProgress.create({ 
-        data: { userId, lessonId, score: newScore } 
-      });
-      return res.status(200).json({ completed: true, score: newScore });
-    }
+    return res.status(200).json({ completed: true, score: progress.score });
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur.", error: error.message });
   }

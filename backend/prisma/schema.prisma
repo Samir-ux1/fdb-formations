@@ -142,6 +142,22 @@ model LessonProgress {
   @@unique([userId, lessonId])
 }
 
+// Tentatives d'évaluation signées et consommées côté serveur.
+model AssessmentAttempt {
+  id          String   @id @default(cuid())
+  type        String
+  userId      Int
+  courseId    Int
+  lessonId    Int?
+  questionIds Int[]
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, courseId, type])
+  @@index([userId, lessonId, type, consumedAt])
+}
+
 // 6. Table des Questions (Pour les Quiz)
 model Question {
   id            Int      @id @default(autoincrement())

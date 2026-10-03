@@ -1,5 +1,94 @@
 const prisma = require('../config/prisma');
 const emailService = require('../utils/emailService');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+
+const shuffle = items => {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
+};
+
+const selectQuestions = (bank, counts = {}, legacyCount = 0) => {
+  const requestedTotal = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  if (!requestedTotal) {
+    const shuffled = shuffle(bank);
+    return { questions: legacyCount > 0 ? shuffled.slice(0, legacyCount) : shuffled };
+  }
+
+  const selected = [];
+  for (const [difficulty, count] of Object.entries(counts)) {
+    if (!count) continue;
+    const pool = bank.filter(question => question.difficulty === difficulty);
+    if (pool.length < count) {
+      return { error: `La banque contient ${pool.length} question(s) ${difficulty.toLowerCase()} mais ${count} sont demandées.` };
+    }
+    selected.push(...shuffle(pool).slice(0, count));
+  }
+  return { questions: shuffle(selected) };
+};
+
+const createAssessmentToken = async (claims, res) => {
+  if (!process.env.JWT_SECRET) {
+    res.status(500).json({ message: 'La configuration de sécurité du serveur est incomplète.' });
+    return null;
+  }
+  const attemptId = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 45 * 60 * 1000);
+  await prisma.assessmentAttempt.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+  await prisma.assessmentAttempt.create({
+    data: {
+      id: attemptId,
+      type: claims.type,
+      userId: claims.userId,
+      courseId: claims.courseId,
+      lessonId: claims.lessonId,
+      questionIds: claims.questionIds,
+      expiresAt
+    }
+  });
+  return jwt.sign({
+    type: claims.type,
+    userId: claims.userId,
+    courseId: claims.courseId,
+    lessonId: claims.lessonId,
+    attemptId
+  }, process.env.JWT_SECRET, { expiresIn: '45m' });
+};
+
+const verifyAssessmentToken = (token, type, userId, courseId) => {
+  if (!process.env.JWT_SECRET || typeof token !== 'string') return null;
+  try {
+    const claims = jwt.verify(token, process.env.JWT_SECRET);
+    if (claims.type !== type || claims.userId !== userId || claims.courseId !== courseId || typeof claims.attemptId !== 'string') return null;
+    return claims;
+  } catch {
+    return null;
+  }
+};
+
+const validateAnswers = (answers, questions) => {
+  if (!Array.isArray(answers) || answers.length !== questions.length) return false;
+  const validIds = new Set(questions.map(question => question.id));
+  const submittedIds = new Set();
+  return answers.every(answer => {
+    const question = questions.find(item => item.id === Number(answer?.questionId));
+    const selectedOption = Number(answer?.selectedOption);
+    if (!question || !validIds.has(question.id) || submittedIds.has(question.id) ||
+      !Number.isInteger(selectedOption) || selectedOption < 0 || selectedOption >= question.options.length) return false;
+    submittedIds.add(question.id);
+    return true;
+  });
+};
+
+const calculateScore = (answers, questions) => {
+  const answerByQuestion = new Map(answers.map(answer => [Number(answer.questionId), Number(answer.selectedOption)]));
+  const correct = questions.reduce((sum, question) => sum + (answerByQuestion.get(question.id) === question.correctAnswer ? 1 : 0), 0);
+  return Math.round((correct / questions.length) * 20);
+};
 
 exports.createCourse = async (req, res) => {
   console.log("👉 Création du cours demandée :", req.body.title);
@@ -201,11 +290,32 @@ exports.getCourseById = async (req, res) => {
       return res.status(403).json({ message: "Accès refusé. Vous devez débloquer ce cours." });
     }
 
-    res.status(200).json({ 
+    const canManageCourse = req.user.role === 'ADMIN' ||
+      (req.user.role === 'INSTRUCTOR' && course.instructorId === userId);
+    const courseForLearner = canManageCourse ? course : {
       ...course,
-      ...(req.user.role === 'INSTRUCTOR' || req.user.role === 'ADMIN' ? {} : { accessKey: undefined }),
-      enrollment: isEnrolled 
-    });
+      accessKey: undefined,
+      examQuestions: course.examQuestions.map(({ correctAnswer, ...question }) => question),
+      lessons: course.lessons.map(lesson => ({
+        ...lesson,
+        questions: lesson.questions.map(({ correctAnswer, ...question }) => question)
+      }))
+    };
+
+    if (!canManageCourse && req.user.role === 'STUDENT') {
+      const attempts = await prisma.assessmentAttempt.groupBy({
+        by: ['lessonId'],
+        where: { userId, courseId, type: 'LESSON_QUIZ', consumedAt: { not: null } },
+        _count: { _all: true }
+      });
+      const attemptsByLesson = new Map(attempts.map(item => [item.lessonId, item._count._all]));
+      courseForLearner.lessons = courseForLearner.lessons.map(lesson => ({
+        ...lesson,
+        quizAttemptsUsed: attemptsByLesson.get(lesson.id) || 0
+      }));
+    }
+
+    res.status(200).json({ ...courseForLearner, enrollment: isEnrolled });
     
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur.", error: error.message });
@@ -306,6 +416,7 @@ exports.deleteCourse = async (req, res) => {
 
     // 2. Supprimer les inscriptions liées (pour éviter les erreurs de base de données)
     await prisma.enrollment.deleteMany({ where: { courseId } });
+    await prisma.assessmentAttempt.deleteMany({ where: { courseId } });
     
     // 3. Supprimer le cours (les leçons seront supprimées automatiquement)
     await prisma.course.delete({ where: { id: courseId } });
@@ -428,22 +539,35 @@ exports.getCourseStudents = async (req, res) => {
 // --- SOUMETTRE LES NOTES ET VALIDER LA FORMATION (SUR 20) ---
 exports.submitGrades = async (req, res) => {
   try {
-    const courseId = parseInt(req.params.courseId);
+    const courseId = Number.parseInt(req.params.courseId, 10);
     const userId = req.user.userId;
-    const { quizScore, examScore } = req.body; // Les notes sont maintenant sur 20
+    const claims = verifyAssessmentToken(req.body?.attemptToken, 'FINAL_EXAM', userId, courseId);
+    if (!claims) return res.status(400).json({ message: 'Cette tentative d’examen est invalide ou expirée.' });
 
-    if (![quizScore, examScore].every(value => Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 20)) {
-      return res.status(400).json({ message: 'Les notes doivent être comprises entre 0 et 20.' });
+    const attempt = await prisma.assessmentAttempt.findUnique({ where: { id: claims.attemptId } });
+    if (!attempt || attempt.type !== 'FINAL_EXAM' || attempt.userId !== userId || attempt.courseId !== courseId || attempt.consumedAt || attempt.expiresAt <= new Date()) {
+      return res.status(409).json({ message: 'Cette tentative d’examen a expiré ou a déjà été utilisée.' });
     }
 
-    // On récupère d'abord l'inscription pour voir s'il y a une note de terrain
-    const enrollment = await prisma.enrollment.findUnique({
-      where: { userId_courseId: { userId, courseId } }
-    });
+    const [enrollment, lessonCount, progresses, questions] = await Promise.all([
+      prisma.enrollment.findUnique({ where: { userId_courseId: { userId, courseId } } }),
+      prisma.lesson.count({ where: { courseId } }),
+      prisma.lessonProgress.findMany({ where: { userId, lesson: { courseId } }, select: { score: true } }),
+      prisma.question.findMany({ where: { id: { in: attempt.questionIds }, courseId } })
+    ]);
     if (!enrollment) return res.status(404).json({ message: 'Inscription introuvable.' });
     if (enrollment.status !== 'IN_PROGRESS') {
       return res.status(400).json({ message: 'Cette formation a déjà été évaluée.' });
     }
+    if (progresses.length < lessonCount) return res.status(400).json({ message: 'Terminez tous les chapitres avant de soumettre l’examen.' });
+    if (!questions.length || questions.length !== attempt.questionIds.length || !validateAnswers(req.body?.answers, questions)) {
+      return res.status(400).json({ message: 'Les réponses envoyées ne correspondent pas à cette tentative.' });
+    }
+
+    const quizScore = progresses.length
+      ? Number((progresses.reduce((total, progress) => total + (progress.score ?? 0), 0) / progresses.length).toFixed(2))
+      : 0;
+    const examScore = calculateScore(req.body.answers, questions);
 
     let finalGrade = 0;
     if (enrollment.fieldGrade !== null) {
@@ -456,24 +580,35 @@ exports.submitGrades = async (req, res) => {
 
     const isValidated = finalGrade >= 10; // Moyenne sur 20
 
-    const updatedEnrollment = await prisma.enrollment.update({
-      where: { userId_courseId: { userId, courseId } },
-      data: {
-        quizScore,
-        examScore,
-        finalGrade,
-        isValidated,
-        status: isValidated ? 'VALIDATED' : 'FAILED',
-        completedAt: new Date() // Enregistre l'heure de fin
-      }
-    });
+    await prisma.$transaction(async transaction => {
+      const consumed = await transaction.assessmentAttempt.updateMany({
+        where: { id: attempt.id, consumedAt: null, expiresAt: { gt: new Date() } },
+        data: { consumedAt: new Date() }
+      });
+      if (consumed.count !== 1) throw new Error('ASSESSMENT_ATTEMPT_ALREADY_USED');
+      const updated = await transaction.enrollment.updateMany({
+        where: { userId, courseId, status: 'IN_PROGRESS' },
+        data: {
+          quizScore,
+          examScore,
+          finalGrade,
+          isValidated,
+          status: isValidated ? 'VALIDATED' : 'FAILED',
+          completedAt: new Date()
+        }
+      });
+      if (updated.count !== 1) throw new Error('ENROLLMENT_ALREADY_EVALUATED');
+    }, { isolationLevel: 'Serializable' });
 
-    res.status(200).json({ 
+    return res.status(200).json({
       message: isValidated ? "Validé !" : "Échec.",
       results: { quizScore, examScore, finalGrade, isValidated }
     });
 
   } catch (error) {
+    if (error.message === 'ASSESSMENT_ATTEMPT_ALREADY_USED' || error.message === 'ENROLLMENT_ALREADY_EVALUATED') {
+      return res.status(409).json({ message: 'Cette tentative d’examen a déjà été utilisée.' });
+    }
     res.status(500).json({ message: "Erreur de notation.", error: error.message });
   }
 };
@@ -492,6 +627,7 @@ exports.resetStudent = async (req, res) => {
     if (req.user.role !== 'ADMIN' && enrollment.course.instructorId !== req.user.userId) {
       return res.status(403).json({ message: 'Accès refusé.' });
     }
+    await prisma.assessmentAttempt.deleteMany({ where: { userId: studentId, courseId } });
 
     // 1. Remettre l'inscription à zéro
     await prisma.enrollment.update({
@@ -608,6 +744,159 @@ exports.sendDeadlineReminder = async (req, res) => {
   } catch (error) {
     console.error('Erreur lors de la relance de la formation :', error);
     return res.status(500).json({ message: 'Impossible d’envoyer la relance.' });
+  }
+};
+
+// Tirage et correction des quiz de chapitre effectués côté serveur.
+exports.startLessonQuiz = async (req, res) => {
+  try {
+    const courseId = Number.parseInt(req.params.courseId, 10);
+    const lessonId = Number.parseInt(req.params.lessonId, 10);
+    const userId = req.user.userId;
+    const lesson = await prisma.lesson.findFirst({ where: { id: lessonId, courseId } });
+    if (!lesson) return res.status(404).json({ message: 'Chapitre introuvable.' });
+
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId, courseId } },
+      select: { status: true }
+    });
+    if (!enrollment || enrollment.status !== 'IN_PROGRESS') {
+      return res.status(403).json({ message: 'Cette formation ne peut pas être évaluée avec ce compte.' });
+    }
+
+    const existingProgress = await prisma.lessonProgress.findUnique({
+      where: { userId_lessonId: { userId, lessonId } },
+      select: { score: true }
+    });
+    if (existingProgress?.score >= 10) {
+      return res.status(409).json({ message: 'Ce chapitre est déjà validé.' });
+    }
+    const attemptsUsed = await prisma.assessmentAttempt.count({
+      where: { userId, lessonId, type: 'LESSON_QUIZ', consumedAt: { not: null } }
+    });
+    if (attemptsUsed >= 2) return res.status(409).json({ message: 'Les deux tentatives de ce quiz ont été utilisées.' });
+
+    const bank = await prisma.question.findMany({ where: { lessonId }, select: { id: true, questionText: true, options: true, difficulty: true, correctAnswer: true } });
+    const selection = selectQuestions(bank, {
+      FACILE: lesson.quizEasyQuestionCount,
+      MOYEN: lesson.quizMediumQuestionCount,
+      DIFFICILE: lesson.quizHardQuestionCount
+    }, lesson.quizQuestionCount);
+    if (selection.error) return res.status(400).json({ message: selection.error });
+    if (!selection.questions.length) return res.status(400).json({ message: 'Aucune question n’est configurée pour ce chapitre.' });
+
+    const attemptToken = await createAssessmentToken({
+      type: 'LESSON_QUIZ', userId, courseId, lessonId,
+      questionIds: selection.questions.map(question => question.id)
+    }, res);
+    if (!attemptToken) return;
+
+    return res.json({
+      attemptToken,
+      attemptNumber: attemptsUsed + 1,
+      questions: selection.questions.map(({ id, questionText, options, difficulty }) => ({ id, questionText, options, difficulty }))
+    });
+  } catch (error) {
+    console.error('Erreur au démarrage du quiz :', error);
+    return res.status(500).json({ message: 'Impossible de préparer le quiz.' });
+  }
+};
+
+exports.submitLessonQuiz = async (req, res) => {
+  try {
+    const courseId = Number.parseInt(req.params.courseId, 10);
+    const lessonId = Number.parseInt(req.params.lessonId, 10);
+    const userId = req.user.userId;
+    const claims = verifyAssessmentToken(req.body?.attemptToken, 'LESSON_QUIZ', userId, courseId);
+    if (!claims || claims.lessonId !== lessonId) return res.status(400).json({ message: 'Cette tentative de quiz est invalide ou expirée.' });
+
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId, courseId } },
+      select: { status: true }
+    });
+    if (!enrollment || enrollment.status !== 'IN_PROGRESS') return res.status(403).json({ message: 'Cette formation ne peut plus être évaluée.' });
+
+    const attempt = await prisma.assessmentAttempt.findUnique({ where: { id: claims.attemptId } });
+    if (!attempt || attempt.type !== 'LESSON_QUIZ' || attempt.userId !== userId || attempt.courseId !== courseId || attempt.lessonId !== lessonId || attempt.consumedAt || attempt.expiresAt <= new Date()) {
+      return res.status(409).json({ message: 'Cette tentative de quiz a expiré ou a déjà été utilisée.' });
+    }
+    const questions = await prisma.question.findMany({ where: { id: { in: attempt.questionIds }, lessonId } });
+    if (questions.length !== attempt.questionIds.length || !validateAnswers(req.body?.answers, questions)) {
+      return res.status(400).json({ message: 'Les réponses envoyées ne correspondent pas à cette tentative.' });
+    }
+
+    const score = calculateScore(req.body.answers, questions);
+    let chapterCompleted = false;
+    let attemptsUsed = 0;
+    await prisma.$transaction(async transaction => {
+      const consumed = await transaction.assessmentAttempt.updateMany({
+        where: { id: attempt.id, consumedAt: null, expiresAt: { gt: new Date() } },
+        data: { consumedAt: new Date() }
+      });
+      if (consumed.count !== 1) throw new Error('ASSESSMENT_ATTEMPT_ALREADY_USED');
+      attemptsUsed = await transaction.assessmentAttempt.count({
+        where: { userId, lessonId, type: 'LESSON_QUIZ', consumedAt: { not: null } }
+      });
+      if (attemptsUsed > 2) throw new Error('ASSESSMENT_ATTEMPT_LIMIT_REACHED');
+      const savedProgress = await transaction.lessonProgress.findUnique({
+        where: { userId_lessonId: { userId, lessonId } },
+        select: { score: true }
+      });
+      if (savedProgress?.score >= 10) throw new Error('CHAPTER_ALREADY_PASSED');
+      chapterCompleted = score >= 10 || attemptsUsed >= 2;
+      if (chapterCompleted) {
+        await transaction.lessonProgress.upsert({
+          where: { userId_lessonId: { userId, lessonId } },
+          create: { userId, lessonId, score },
+          update: { score }
+        });
+      }
+    }, { isolationLevel: 'Serializable' });
+    return res.json({ completed: chapterCompleted, score, attemptsUsed });
+  } catch (error) {
+    if (error.message === 'ASSESSMENT_ATTEMPT_ALREADY_USED') return res.status(409).json({ message: 'Cette tentative a déjà été utilisée.' });
+    if (error.message === 'ASSESSMENT_ATTEMPT_LIMIT_REACHED') return res.status(409).json({ message: 'Les deux tentatives de ce quiz ont été utilisées.' });
+    if (error.message === 'CHAPTER_ALREADY_PASSED') return res.status(409).json({ message: 'Ce chapitre est déjà validé.' });
+    console.error('Erreur de correction du quiz :', error);
+    return res.status(500).json({ message: 'Impossible de corriger le quiz.' });
+  }
+};
+
+exports.startFinalExam = async (req, res) => {
+  try {
+    const courseId = Number.parseInt(req.params.courseId, 10);
+    const userId = req.user.userId;
+    const [course, enrollment, lessonCount, completedLessons] = await Promise.all([
+      prisma.course.findUnique({ where: { id: courseId }, select: { examEasyQuestionCount: true, examMediumQuestionCount: true, examHardQuestionCount: true } }),
+      prisma.enrollment.findUnique({ where: { userId_courseId: { userId, courseId } }, select: { status: true } }),
+      prisma.lesson.count({ where: { courseId } }),
+      prisma.lessonProgress.count({ where: { userId, lesson: { courseId } } })
+    ]);
+    if (!course) return res.status(404).json({ message: 'Formation introuvable.' });
+    if (!enrollment || enrollment.status !== 'IN_PROGRESS') return res.status(403).json({ message: 'Cette formation ne peut pas être évaluée avec ce compte.' });
+    if (completedLessons < lessonCount) return res.status(400).json({ message: 'Terminez tous les chapitres avant de passer l’examen.' });
+
+    const bank = await prisma.question.findMany({ where: { courseId }, select: { id: true, questionText: true, options: true, difficulty: true, correctAnswer: true } });
+    const selection = selectQuestions(bank, {
+      FACILE: course.examEasyQuestionCount,
+      MOYEN: course.examMediumQuestionCount,
+      DIFFICILE: course.examHardQuestionCount
+    });
+    if (selection.error) return res.status(400).json({ message: selection.error });
+    if (!selection.questions.length) return res.status(400).json({ message: 'Aucune question n’est configurée pour cet examen.' });
+
+    const attemptToken = await createAssessmentToken({
+      type: 'FINAL_EXAM', userId, courseId,
+      questionIds: selection.questions.map(question => question.id)
+    }, res);
+    if (!attemptToken) return;
+    return res.json({
+      attemptToken,
+      questions: selection.questions.map(({ id, questionText, options, difficulty }) => ({ id, questionText, options, difficulty }))
+    });
+  } catch (error) {
+    console.error('Erreur au démarrage de l’examen :', error);
+    return res.status(500).json({ message: 'Impossible de préparer l’examen.' });
   }
 };
 

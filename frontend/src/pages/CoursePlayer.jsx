@@ -7,7 +7,7 @@ import { useAuthStore } from '../store/authStore';
 import { API_URL } from '../config/api';
 import {
   ArrowLeft, Lock, CheckCircle2, PlayCircle, FileText, PlaySquare, 
-  HelpCircle, Trophy, XCircle, RotateCcw, Target, Award, ListChecks, ArrowRight
+  Trophy, XCircle, RotateCcw, Target, Award, ListChecks, ArrowRight
 } from 'lucide-react';
 
 const getYouTubeId = (url) => {
@@ -54,30 +54,19 @@ const shuffleQuestions = (items) => {
   return shuffled;
 };
 
-const selectQuestionSet = (bank = [], counts = {}, legacyCount = 0) => {
-  const requestedTotal = Object.values(counts).reduce((sum, count) => sum + (Number(count) || 0), 0);
-  if (requestedTotal === 0) {
-    const shuffled = shuffleQuestions(bank);
-    return { questions: legacyCount > 0 ? shuffled.slice(0, legacyCount) : shuffled, error: '' };
-  }
-
-  const selected = [];
-  for (const [difficulty, rawCount] of Object.entries(counts)) {
-    const count = Number(rawCount) || 0;
-    if (!count) continue;
-    const pool = bank.filter(question => question.difficulty === difficulty);
-    if (pool.length < count) {
-      return { questions: [], error: `La banque contient ${pool.length} question(s) ${difficulty.toLowerCase()} mais ${count} sont demandées.` };
-    }
-    selected.push(...shuffleQuestions(pool).slice(0, count));
-  }
-  return { questions: shuffleQuestions(selected), error: '' };
+const prepareQuestionForDisplay = question => {
+  const options = shuffleQuestions(question.options.map((text, originalIndex) => ({ text, originalIndex })));
+  return {
+    ...question,
+    shuffledOptions: options.map(option => option.text),
+    shuffledOriginalIndices: options.map(option => option.originalIndex)
+  };
 };
 
 export default function CoursePlayer() {
   const { courseId } = useParams();
   const navigate = useNavigate();
-  const { token, setLastCourseId } = useAuthStore();
+  const { token } = useAuthStore();
   
   const [course, setCourse] = useState(null);
   const [currentLesson, setCurrentLesson] = useState(null);
@@ -123,14 +112,15 @@ export default function CoursePlayer() {
   // --- NOUVEAUX ÉTATS DU QUIZ ---
   const [activeQuizQuestions, setActiveQuizQuestions] = useState([]); // Questions tirées au sort
   const [quizConfigError, setQuizConfigError] = useState('');
+  const [quizAttemptToken, setQuizAttemptToken] = useState('');
   const [activeExamQuestions, setActiveExamQuestions] = useState([]);
   const [examConfigError, setExamConfigError] = useState('');
+  const [examAttemptToken, setExamAttemptToken] = useState('');
   const [quizAttempts, setQuizAttempts] = useState(0); 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); 
   const [chapterAnswers, setChapterAnswers] = useState({}); // Mémorise les choix { 0: 2, 1: 0, ... }
   const [score, setScore] = useState(0); 
   const [quizFinished, setQuizFinished] = useState(false); 
-  const [savedScoreOn20, setSavedScoreOn20] = useState(null);
 
   // États Examen Final
   const [showFinalExam, setShowFinalExam] = useState(false);
@@ -282,37 +272,28 @@ export default function CoursePlayer() {
   }, [course?.enrollment?.id, course?.enrollment?.status, courseId, token]);
 
   // 2. MOTEUR DU QUIZ : GÉNÉRATION ET MÉLANGE
-  const initializeQuiz = (lesson) => {
-    if (lesson?.questions && lesson.questions.length > 0) {
-      const selection = selectQuestionSet(lesson.questions, {
-        FACILE: lesson.quizEasyQuestionCount || 0,
-        MOYEN: lesson.quizMediumQuestionCount || 0,
-        DIFFICILE: lesson.quizHardQuestionCount || 0
-      }, lesson.quizQuestionCount || 0);
-      setQuizConfigError(selection.error);
-      const pool = selection.questions;
-
-      // Mélanger les réponses
-      const preparedQs = pool.map(q => {
-        const optsWithIdx = q.options.map((opt, i) => ({ text: opt, originalIdx: i }));
-        const shuffled = shuffleQuestions(optsWithIdx);
-        return {
-          ...q,
-          shuffledOptions: shuffled.map(o => o.text),
-          newCorrectIndex: shuffled.findIndex(o => o.originalIdx === q.correctAnswer)
-        };
-      });
-      setActiveQuizQuestions(preparedQs);
-    } else {
-      setActiveQuizQuestions([]);
-      setQuizConfigError('');
-    }
-    
+  const initializeQuiz = async (lesson) => {
+    setActiveQuizQuestions([]);
+    setQuizAttemptToken('');
+    setQuizConfigError('');
     // Reset du quiz pour la tentative
     setCurrentQuestionIndex(0);
     setChapterAnswers({}); // Vide les réponses
     setScore(0);
     setQuizFinished(false);
+    if (!lesson?.questions?.length) return;
+
+    try {
+      const activeToken = token || localStorage.getItem('token');
+      const response = await axios.post(`${API_URL}/courses/${courseId}/lessons/${lesson.id}/quiz/start`, {}, {
+        headers: { Authorization: `Bearer ${activeToken}` }
+      });
+      setQuizAttempts(Math.max(0, response.data.attemptNumber - 1));
+      setQuizAttemptToken(response.data.attemptToken);
+      setActiveQuizQuestions(response.data.questions.map(prepareQuestionForDisplay));
+    } catch (error) {
+      setQuizConfigError(error.response?.data?.message || 'Impossible de charger le quiz.');
+    }
   };
 
   // Chargement de la leçon
@@ -328,23 +309,28 @@ export default function CoursePlayer() {
     const progress = currentLesson.progresses?.length > 0 ? currentLesson.progresses[0] : null;
 
     if (progress && currentLesson.questions && currentLesson.questions.length > 0) {
-      setQuizFinished(true);
-      setSavedScoreOn20(progress.score !== null ? progress.score : 20);
-      setQuizAttempts(1); // Force la fin des tentatives si déjà validé
+      const attemptsUsed = currentLesson.quizAttemptsUsed || 0;
+      setScore(progress.score !== null ? progress.score : 20);
+      if ((progress.score ?? 20) >= 10 || attemptsUsed >= 2) {
+        setQuizFinished(true);
+        setQuizAttempts(attemptsUsed);
+      } else {
+        setQuizAttempts(attemptsUsed);
+        initializeQuiz(currentLesson);
+      }
     } else {
       initializeQuiz(currentLesson);
-      setSavedScoreOn20(null);
       setQuizAttempts(0);
     }
     setIsVideoFinished(false);
   }, [currentLesson]);
 
   // 3. PROGRESSION
-  const toggleComplete = async (lessonId, quizScore = 20) => {
+  const toggleComplete = async (lessonId) => {
     try {
       const activeToken = token || localStorage.getItem('token'); 
       await axios.post(`${API_URL}/courses/${courseId}/lessons/${lessonId}/progress`,
-      { score: quizScore }, { headers: { Authorization: `Bearer ${activeToken}` } });
+      {}, { headers: { Authorization: `Bearer ${activeToken}` } });
       fetchCourseData(); 
     } catch (error) { console.error(error); }
   };
@@ -354,7 +340,7 @@ export default function CoursePlayer() {
     if (currentLesson?.questions && currentLesson.questions.length > 0) return;
     
     const isCompleted = currentLesson?.progresses?.length > 0;
-    if (!isCompleted) toggleComplete(currentLesson.id, 20); 
+    if (!isCompleted) toggleComplete(currentLesson.id);
     
     if (nextLesson) setTimeout(() => selectLesson(nextLesson), 2000); 
   };
@@ -369,21 +355,34 @@ export default function CoursePlayer() {
     if (currentQuestionIndex < activeQuizQuestions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
     } else {
-      // Fin du Quiz ! On calcule le score total
-      let correct = 0;
-      activeQuizQuestions.forEach((q, idx) => {
-        if (chapterAnswers[idx] === q.newCorrectIndex) correct++;
-      });
+      submitChapterQuiz();
+    }
+  };
 
-      const finalScoreOn20 = Math.round((correct / activeQuizQuestions.length) * 20);
-      setScore(finalScoreOn20);
+  const submitChapterQuiz = async () => {
+    try {
+      const activeToken = token || localStorage.getItem('token');
+      const answers = activeQuizQuestions.map((question, index) => ({
+        questionId: question.id,
+        selectedOption: question.shuffledOriginalIndices[chapterAnswers[index]]
+      }));
+      const response = await axios.post(`${API_URL}/courses/${courseId}/lessons/${currentLesson.id}/quiz/submit`, {
+        attemptToken: quizAttemptToken,
+        answers
+      }, { headers: { Authorization: `Bearer ${activeToken}` } });
+      setScore(response.data.score);
+      setQuizAttempts(Math.max(0, response.data.attemptsUsed - 1));
       setQuizFinished(true);
-
-      // Si le score est 20/20 OU qu'il n'a plus d'essais, on sauvegarde
-      if (finalScoreOn20 === 20 || quizAttempts >= 1) {
-        setSavedScoreOn20(finalScoreOn20); 
-        toggleComplete(currentLesson.id, finalScoreOn20);
+      if (response.data.completed) {
+        setCourse(current => ({
+          ...current,
+          lessons: current.lessons.map(lesson => lesson.id === currentLesson.id
+            ? { ...lesson, progresses: [{ ...(lesson.progresses?.[0] || {}), score: response.data.score }], quizAttemptsUsed: response.data.attemptsUsed }
+            : lesson)
+        }));
       }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Impossible de corriger le quiz.');
     }
   };
 
@@ -393,40 +392,40 @@ export default function CoursePlayer() {
   };
 
   // 5. EXAMEN FINAL
-  const startFinalExam = () => {
-    const selection = selectQuestionSet(course.examQuestions || [], {
-      FACILE: course.examEasyQuestionCount || 0,
-      MOYEN: course.examMediumQuestionCount || 0,
-      DIFFICILE: course.examHardQuestionCount || 0
-    });
-    setActiveExamQuestions(selection.questions);
-    setExamConfigError(selection.error);
+  const startFinalExam = async () => {
+    setActiveExamQuestions([]);
+    setExamAttemptToken('');
+    setExamConfigError('');
     setExamAnswers({});
     setShowFinalExam(true);
+    try {
+      const activeToken = token || localStorage.getItem('token');
+      const response = await axios.post(`${API_URL}/courses/${courseId}/exam/start`, {}, {
+        headers: { Authorization: `Bearer ${activeToken}` }
+      });
+      setExamAttemptToken(response.data.attemptToken);
+      setActiveExamQuestions(response.data.questions.map(prepareQuestionForDisplay));
+    } catch (error) {
+      setExamConfigError(error.response?.data?.message || 'Impossible de préparer l’examen.');
+    }
   };
 
   const handleSubmitExam = async () => {
     if (examConfigError || activeExamQuestions.length === 0) return;
-    if (!window.confirm("Valider l'examen ? Votre note finale sera calculée sur 20.")) return;
-    
-    const completedLessons = course.lessons.filter(l => l.progresses && l.progresses.length > 0);
-    let totalQuizScore = 0;
-    completedLessons.forEach(l => { totalQuizScore += (l.progresses[0].score !== null ? l.progresses[0].score : 20); });
-    const averageQuizScore = completedLessons.length > 0 ? (totalQuizScore / completedLessons.length) : 0;
-
-    let examCorrect = 0;
-    const totalExamQs = activeExamQuestions.length;
-    if (totalExamQs > 0) {
-      activeExamQuestions.forEach((q, index) => {
-        if (examAnswers[index] === q.correctAnswer) examCorrect++;
-      });
+    if (activeExamQuestions.some((_, index) => examAnswers[index] === undefined)) {
+      toast.error('Répondez à toutes les questions avant de soumettre l’examen.');
+      return;
     }
-    const examScore = totalExamQs > 0 ? Math.round((examCorrect / totalExamQs) * 20) : 0;
+    if (!window.confirm("Valider l'examen ? Votre note finale sera calculée sur 20.")) return;
 
     try {
       const activeToken = token || localStorage.getItem('token'); 
       const response = await axios.post(`${API_URL}/courses/${courseId}/grades`, {
-        quizScore: averageQuizScore, examScore
+        attemptToken: examAttemptToken,
+        answers: activeExamQuestions.map((question, index) => ({
+          questionId: question.id,
+          selectedOption: question.shuffledOriginalIndices[examAnswers[index]]
+        }))
       }, { headers: { Authorization: `Bearer ${activeToken}` } });
       
       setValidationResult(response.data.results);
@@ -443,8 +442,6 @@ export default function CoursePlayer() {
   );
 
   const completedLessons = course.lessons.filter(l => l.progresses && l.progresses.length > 0).length;
-  const progressPercentage = course.lessons.length === 0 ? 0 : Math.round((completedLessons / course.lessons.length) * 100);
-  
   const currentIndex = course.lessons.findIndex(l => l.id === currentLesson?.id);
   const prevLesson = currentIndex > 0 ? course.lessons[currentIndex - 1] : null;
   const nextLesson = currentIndex < course.lessons.length - 1 ? course.lessons[currentIndex + 1] : null;
@@ -527,7 +524,7 @@ export default function CoursePlayer() {
                     <div key={i} className="bg-slate-50 p-6 sm:p-8 rounded-2xl border border-slate-100">
                       <p className="font-black text-base mb-5 text-slate-900"><span className="text-slate-400">Q{i+1}.</span> {q.questionText}</p>
                       <div className="space-y-3">
-                        {(q.options || []).map((opt, optIndex) => (
+                        {(q.shuffledOptions || []).map((opt, optIndex) => (
                           <label key={optIndex} className={`flex items-center gap-4 p-4 bg-white rounded-xl border-2 cursor-pointer transition-all ${examAnswers[i] === optIndex ? 'border-[#EB0A1E] bg-red-50' : 'border-slate-200 hover:border-red-100'}`}>
                             <input type="radio" name={`exam-${i}`} checked={examAnswers[i] === optIndex} onChange={() => setExamAnswers({...examAnswers, [i]: optIndex})} className="w-5 h-5 accent-[#EB0A1E]"/>
                             <span className={`text-sm font-semibold ${examAnswers[i] === optIndex ? 'text-[#EB0A1E]' : 'text-slate-700'}`}>{opt}</span>
@@ -656,7 +653,7 @@ export default function CoursePlayer() {
                   
                   {currentLesson && (
                     <button 
-                      onClick={() => toggleComplete(currentLesson.id, 20)}
+                      onClick={() => toggleComplete(currentLesson.id)}
                       disabled={!canClickDone || (currentLesson.questions && currentLesson.questions.length > 0)}
                       className={`px-5 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 shrink-0 ${
                         !canClickDone ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' : 
