@@ -595,25 +595,15 @@ export default function CourseManager() {
                       <input type="number" min="0" value={newLesson[field]} onChange={e => setNewLesson({ ...newLesson, [field]: parseInt(e.target.value, 10) || 0 })} className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 text-sm" />
                     </div>
                   ))}
-                  <div className="col-span-2 sm:col-span-1 flex items-end">
-                    <button 
-                      id="lesson-submit-button"
-                      type="submit" 
-                      disabled={isProcessing} 
-                      className={`w-full py-3.5 text-white font-black uppercase tracking-wider text-xs rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 ${editingLessonId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-[#EB0A1E] hover:bg-red-700'}`}
-                    >
-                      {editingLessonId ? (
-                        <>
-                          <CheckCircle2 className="w-4 h-4" /> Mettre à jour
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-4 h-4" /> Enregistrer le chapitre
-                        </>
-                      )}
-                    </button>
-                  </div>
                 </div>
+                <button 
+                  id="lesson-submit-button"
+                  type="submit" 
+                  disabled={isProcessing} 
+                  className={`mt-4 w-full py-3.5 text-white font-black uppercase tracking-wider text-xs rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 ${editingLessonId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-[#EB0A1E] hover:bg-red-700'}`}
+                >
+                  {editingLessonId ? <><CheckCircle2 className="w-4 h-4" /> Mettre à jour</> : <><Plus className="w-4 h-4" /> Enregistrer le chapitre</>}
+                </button>
                 <p className="text-xs text-slate-500">Répartition tirée au hasard depuis la banque du chapitre. Si les trois valeurs restent à 0, le quiz prend toutes les questions disponibles.</p>
 
                 {editingLessonId && (
