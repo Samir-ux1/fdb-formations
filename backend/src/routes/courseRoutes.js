@@ -21,6 +21,7 @@ router.post('/:courseId/unlock', verifyToken, courseController.unlockCourse);
 router.post('/:courseId/grades', verifyToken, courseController.submitGrades); // <-- Corrige le 404 de la soumission
 router.post('/:courseId/learning-time', verifyToken, courseController.recordLearningTime);
 router.post('/:courseId/exam-questions', verifyToken, isInstructor, courseController.addExamQuestion);
+router.put('/:courseId/exam-question-counts', verifyToken, isInstructor, courseController.updateExamQuestionCounts);
 router.delete('/:courseId/exam-questions/:questionId', verifyToken, isInstructor, courseController.deleteExamQuestion); // <-- Corrige l'erreur de suppression
 
 // 4. ROUTES DES LEÇONS

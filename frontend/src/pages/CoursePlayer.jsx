@@ -45,6 +45,35 @@ const getSavedPlayback = (courseId) => {
   }
 };
 
+const shuffleQuestions = (items) => {
+  const shuffled = [...items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+};
+
+const selectQuestionSet = (bank = [], counts = {}, legacyCount = 0) => {
+  const requestedTotal = Object.values(counts).reduce((sum, count) => sum + (Number(count) || 0), 0);
+  if (requestedTotal === 0) {
+    const shuffled = shuffleQuestions(bank);
+    return { questions: legacyCount > 0 ? shuffled.slice(0, legacyCount) : shuffled, error: '' };
+  }
+
+  const selected = [];
+  for (const [difficulty, rawCount] of Object.entries(counts)) {
+    const count = Number(rawCount) || 0;
+    if (!count) continue;
+    const pool = bank.filter(question => question.difficulty === difficulty);
+    if (pool.length < count) {
+      return { questions: [], error: `La banque contient ${pool.length} question(s) ${difficulty.toLowerCase()} mais ${count} sont demandées.` };
+    }
+    selected.push(...shuffleQuestions(pool).slice(0, count));
+  }
+  return { questions: shuffleQuestions(selected), error: '' };
+};
+
 export default function CoursePlayer() {
   const { courseId } = useParams();
   const navigate = useNavigate();
@@ -93,6 +122,9 @@ export default function CoursePlayer() {
 
   // --- NOUVEAUX ÉTATS DU QUIZ ---
   const [activeQuizQuestions, setActiveQuizQuestions] = useState([]); // Questions tirées au sort
+  const [quizConfigError, setQuizConfigError] = useState('');
+  const [activeExamQuestions, setActiveExamQuestions] = useState([]);
+  const [examConfigError, setExamConfigError] = useState('');
   const [quizAttempts, setQuizAttempts] = useState(0); 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); 
   const [chapterAnswers, setChapterAnswers] = useState({}); // Mémorise les choix { 0: 2, 1: 0, ... }
@@ -252,17 +284,18 @@ export default function CoursePlayer() {
   // 2. MOTEUR DU QUIZ : GÉNÉRATION ET MÉLANGE
   const initializeQuiz = (lesson) => {
     if (lesson?.questions && lesson.questions.length > 0) {
-      // Mélanger les questions
-      let pool = [...lesson.questions].sort(() => 0.5 - Math.random());
-      
-      // Prendre le nombre demandé par l'instructeur
-      const limit = lesson.quizQuestionCount || 0;
-      if (limit > 0 && limit < pool.length) pool = pool.slice(0, limit);
+      const selection = selectQuestionSet(lesson.questions, {
+        FACILE: lesson.quizEasyQuestionCount || 0,
+        MOYEN: lesson.quizMediumQuestionCount || 0,
+        DIFFICILE: lesson.quizHardQuestionCount || 0
+      }, lesson.quizQuestionCount || 0);
+      setQuizConfigError(selection.error);
+      const pool = selection.questions;
 
       // Mélanger les réponses
       const preparedQs = pool.map(q => {
         const optsWithIdx = q.options.map((opt, i) => ({ text: opt, originalIdx: i }));
-        const shuffled = optsWithIdx.sort(() => 0.5 - Math.random());
+        const shuffled = shuffleQuestions(optsWithIdx);
         return {
           ...q,
           shuffledOptions: shuffled.map(o => o.text),
@@ -272,6 +305,7 @@ export default function CoursePlayer() {
       setActiveQuizQuestions(preparedQs);
     } else {
       setActiveQuizQuestions([]);
+      setQuizConfigError('');
     }
     
     // Reset du quiz pour la tentative
@@ -359,7 +393,20 @@ export default function CoursePlayer() {
   };
 
   // 5. EXAMEN FINAL
+  const startFinalExam = () => {
+    const selection = selectQuestionSet(course.examQuestions || [], {
+      FACILE: course.examEasyQuestionCount || 0,
+      MOYEN: course.examMediumQuestionCount || 0,
+      DIFFICILE: course.examHardQuestionCount || 0
+    });
+    setActiveExamQuestions(selection.questions);
+    setExamConfigError(selection.error);
+    setExamAnswers({});
+    setShowFinalExam(true);
+  };
+
   const handleSubmitExam = async () => {
+    if (examConfigError || activeExamQuestions.length === 0) return;
     if (!window.confirm("Valider l'examen ? Votre note finale sera calculée sur 20.")) return;
     
     const completedLessons = course.lessons.filter(l => l.progresses && l.progresses.length > 0);
@@ -368,13 +415,13 @@ export default function CoursePlayer() {
     const averageQuizScore = completedLessons.length > 0 ? (totalQuizScore / completedLessons.length) : 0;
 
     let examCorrect = 0;
-    const totalExamQs = course.examQuestions?.length || 0;
+    const totalExamQs = activeExamQuestions.length;
     if (totalExamQs > 0) {
-      course.examQuestions.forEach((q, index) => {
+      activeExamQuestions.forEach((q, index) => {
         if (examAnswers[index] === q.correctAnswer) examCorrect++;
       });
     }
-    const examScore = totalExamQs > 0 ? Math.round((examCorrect / totalExamQs) * 20) : 20;
+    const examScore = totalExamQs > 0 ? Math.round((examCorrect / totalExamQs) * 20) : 0;
 
     try {
       const activeToken = token || localStorage.getItem('token'); 
@@ -471,10 +518,12 @@ export default function CoursePlayer() {
               </div>
               
               <div className="mt-8 space-y-6">
-                {(!course.examQuestions || course.examQuestions.length === 0) ? (
+                {examConfigError ? (
+                  <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm font-semibold text-red-800">Configuration incomplète : {examConfigError} Ajoutez les questions manquantes ou ajustez les quantités avec votre formateur.</div>
+                ) : activeExamQuestions.length === 0 ? (
                   <div className="text-center p-8 bg-slate-50 rounded-2xl border border-slate-100"><p className="text-slate-500 font-bold text-sm">Le questionnaire n'est pas disponible.</p></div>
                 ) : (
-                  course.examQuestions.map((q, i) => (
+                  activeExamQuestions.map((q, i) => (
                     <div key={i} className="bg-slate-50 p-6 sm:p-8 rounded-2xl border border-slate-100">
                       <p className="font-black text-base mb-5 text-slate-900"><span className="text-slate-400">Q{i+1}.</span> {q.questionText}</p>
                       <div className="space-y-3">
@@ -490,7 +539,7 @@ export default function CoursePlayer() {
                 )}
               </div>
 
-              {course.examQuestions && course.examQuestions.length > 0 && (
+              {activeExamQuestions.length > 0 && !examConfigError && (
                 <div className="mt-8 pt-8 border-t border-slate-100 flex justify-end">
                   <button onClick={handleSubmitExam} className="w-full sm:w-auto justify-center px-8 py-4 bg-[#111827] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#EB0A1E] shadow-md transition-all active:scale-95 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4" /> Soumettre l'Évaluation
@@ -627,7 +676,7 @@ export default function CoursePlayer() {
                 </div>
 
                 {/* --- MOTEUR DE QUIZ DE CHAPITRE --- */}
-                {activeQuizQuestions.length > 0 && (
+                {(activeQuizQuestions.length > 0 || quizConfigError) && (
                   <div className="mt-12 pt-8 border-t-4 border-slate-100">
                     <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-6 flex items-center gap-2">
                       <span className="w-8 h-8 bg-slate-100 text-red-600 flex items-center justify-center rounded-sm">📝</span> 
@@ -635,7 +684,9 @@ export default function CoursePlayer() {
                     </h3>
 
                     {/* NOUVEAU : LE VERROU DU QUIZ EST DE RETOUR ! 🔒 */}
-                    {(currentLesson?.videoUrl && !isVideoFinished && !(currentLesson?.progresses?.length > 0)) ? (
+                    {quizConfigError ? (
+                      <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm font-semibold text-red-800">Configuration incomplète : {quizConfigError} Ajoutez les questions manquantes ou ajustez les quantités avec votre formateur.</div>
+                    ) : (currentLesson?.videoUrl && !isVideoFinished && !(currentLesson?.progresses?.length > 0)) ? (
                       <div className="bg-slate-50 p-8 rounded-sm border border-slate-200 text-center shadow-sm">
                         <Lock className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                         <p className="font-bold text-slate-600 text-sm">Vous devez terminer la vidéo pour débloquer ce quiz.</p>
@@ -812,7 +863,7 @@ export default function CoursePlayer() {
           {!validationResult && (
             <div className="p-5 bg-slate-50 border-t border-slate-200 mt-auto shrink-0">
               <button 
-                onClick={() => setShowFinalExam(true)}
+                onClick={startFinalExam}
                 disabled={completedLessons < course.lessons.length}
                 className={`w-full py-4 text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${
                   completedLessons < course.lessons.length 

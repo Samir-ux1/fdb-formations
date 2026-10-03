@@ -21,7 +21,7 @@ export default function CourseManager() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [activeTab, setActiveTab] = useState('CONTENT'); // 'CONTENT', 'EXAM', 'STUDENTS'
 
-  const [newLesson, setNewLesson] = useState({ title: '', content: '', videoUrl: '', pdfUrl: '', order: 1, quizQuestionCount: 0 });
+  const [newLesson, setNewLesson] = useState({ title: '', content: '', videoUrl: '', pdfUrl: '', order: 1, quizQuestionCount: 0, quizEasyQuestionCount: 0, quizMediumQuestionCount: 0, quizHardQuestionCount: 0 });
   
   // SUPPORT DU CONTENU ENRICHI : 'BOTH' (Vidéo + PDF simultanés), 'VIDEO' (Vidéo seule), ou 'PDF' (PDF seul)
   const [lessonType, setLessonType] = useState('BOTH'); 
@@ -32,12 +32,14 @@ export default function CourseManager() {
   const [editCourseData, setEditCourseData] = useState({ title: '', description: '', accessKey: '', imageUrl: '', passingScore: 50, categoryId: '', level: 'Débutant', timeLimitDays: null });
 
   const [managingQuizForLessonId, setManagingQuizForLessonId] = useState(null);
-  const [newLessonQ, setNewLessonQ] = useState({ questionText: '', options: ['', '', '', ''], correctAnswer: 0 });
+  const [newLessonQ, setNewLessonQ] = useState({ questionText: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'MOYEN' });
+  const [examQuestionCounts, setExamQuestionCounts] = useState({ examEasyQuestionCount: 0, examMediumQuestionCount: 0, examHardQuestionCount: 0 });
 
   const [newExamQ, setNewExamQ] = useState({
     questionText: '',
     options: ['', '', '', ''],
-    correctAnswer: 0
+    correctAnswer: 0,
+    difficulty: 'MOYEN'
   });
 
   const fetchCourse = async () => {
@@ -47,6 +49,11 @@ export default function CourseManager() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCourse(response.data);
+      setExamQuestionCounts({
+        examEasyQuestionCount: response.data.examEasyQuestionCount || 0,
+        examMediumQuestionCount: response.data.examMediumQuestionCount || 0,
+        examHardQuestionCount: response.data.examHardQuestionCount || 0
+      });
       setCourseError('');
       if (!editingLessonId) {
         setNewLesson(prev => ({ ...prev, order: (response.data.lessons?.length || 0) + 1 }));
@@ -88,6 +95,20 @@ export default function CourseManager() {
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
   };
 
+  const handleSaveExamQuestionCounts = async (event) => {
+    event.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(`https://fdb-formations.vercel.app/api/courses/${courseId}/exam-question-counts`, examQuestionCounts, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('Répartition de l’examen enregistrée.');
+      fetchCourse();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Impossible d’enregistrer la répartition.');
+    }
+  };
+
   useEffect(() => {
     fetchCourse();
     fetchStudents();
@@ -103,7 +124,7 @@ export default function CourseManager() {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Question d'examen ajoutée !");
-      setNewExamQ({ questionText: '', options: ['', '', '', ''], correctAnswer: 0 });
+      setNewExamQ({ questionText: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'MOYEN' });
       fetchCourse(); 
     } catch (error) {
       toast.error(error.response?.data?.message || "Impossible d'ajouter la question d'examen.");
@@ -209,6 +230,9 @@ export default function CourseManager() {
       content: newLesson.content.trim(),
       order: parseInt(newLesson.order) || (course.lessons.length + 1),
       quizQuestionCount: parseInt(newLesson.quizQuestionCount) || 0,
+      quizEasyQuestionCount: parseInt(newLesson.quizEasyQuestionCount) || 0,
+      quizMediumQuestionCount: parseInt(newLesson.quizMediumQuestionCount) || 0,
+      quizHardQuestionCount: parseInt(newLesson.quizHardQuestionCount) || 0,
       // Enregistrement simultané : vidéo ET/OU pdf selon le choix
       videoUrl: includesVideo && newLesson.videoUrl?.trim() ? newLesson.videoUrl.trim() : null,
       pdfUrl: includesPdf && newLesson.pdfUrl?.trim() ? newLesson.pdfUrl.trim() : null,
@@ -225,7 +249,7 @@ export default function CourseManager() {
       }
       
       setEditingLessonId(null);
-      setNewLesson({ title: '', content: '', videoUrl: '', pdfUrl: '', order: course.lessons.length + 2, quizQuestionCount: 0 });
+      setNewLesson({ title: '', content: '', videoUrl: '', pdfUrl: '', order: course.lessons.length + 2, quizQuestionCount: 0, quizEasyQuestionCount: 0, quizMediumQuestionCount: 0, quizHardQuestionCount: 0 });
       fetchCourse();
       toast.success(editingLessonId ? "Chapitre mis à jour !" : "Chapitre  sauvegardé !");
     } catch (error) {
@@ -253,7 +277,10 @@ export default function CourseManager() {
       videoUrl: lesson.videoUrl || '',
       pdfUrl: lesson.pdfUrl || '',
       order: lesson.order,
-      quizQuestionCount: lesson.quizQuestionCount || 0
+      quizQuestionCount: lesson.quizQuestionCount || 0,
+      quizEasyQuestionCount: lesson.quizEasyQuestionCount || 0,
+      quizMediumQuestionCount: lesson.quizMediumQuestionCount || 0,
+      quizHardQuestionCount: lesson.quizHardQuestionCount || 0
     });
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -278,7 +305,7 @@ export default function CourseManager() {
       await axios.post(`https://fdb-formations.vercel.app/api/courses/${courseId}/lessons/${managingQuizForLessonId}/questions`, newLessonQ, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setNewLessonQ({ questionText: '', options: ['', '', '', ''], correctAnswer: 0 });
+      setNewLessonQ({ questionText: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'MOYEN' });
       fetchCourse(); 
       toast.success("Question ajoutée au quiz !");
     } catch (error) {
@@ -545,8 +572,8 @@ export default function CourseManager() {
                   />
                 </div>
 
-                <div className="grid grid-cols-4 gap-2 sm:gap-4">
-                  <div className="col-span-1">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-4">
+                  <div>
                     <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5">Ordre</label>
                     <input 
                       id="lesson-order-input"
@@ -558,19 +585,17 @@ export default function CourseManager() {
                       required 
                     />
                   </div>
-                  <div className="col-span-1" title="0 = Toutes les questions">
-                    <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5 line-clamp-1">Nb. QCM</label>
-                    <input 
-                      id="lesson-quizcount-input"
-                      type="number" 
-                      min="0" 
-                      value={newLesson.quizQuestionCount || 0} 
-                      onChange={e => setNewLesson({...newLesson, quizQuestionCount: parseInt(e.target.value) || 0})} 
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 text-sm transition-all" 
-                      required 
-                    />
-                  </div>
-                  <div className="col-span-2 flex items-end">
+                  {[
+                    ['quizEasyQuestionCount', 'Faciles'],
+                    ['quizMediumQuestionCount', 'Moyennes'],
+                    ['quizHardQuestionCount', 'Difficiles']
+                  ].map(([field, label]) => (
+                    <div key={field}>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">{label}</label>
+                      <input type="number" min="0" value={newLesson[field]} onChange={e => setNewLesson({ ...newLesson, [field]: parseInt(e.target.value, 10) || 0 })} className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 text-sm" />
+                    </div>
+                  ))}
+                  <div className="col-span-2 sm:col-span-1 flex items-end">
                     <button 
                       id="lesson-submit-button"
                       type="submit" 
@@ -589,6 +614,7 @@ export default function CourseManager() {
                     </button>
                   </div>
                 </div>
+                <p className="text-xs text-slate-500">Répartition tirée au hasard depuis la banque du chapitre. Si les trois valeurs restent à 0, le quiz prend toutes les questions disponibles.</p>
 
                 {editingLessonId && (
                   <button 
@@ -596,7 +622,7 @@ export default function CourseManager() {
                     id="lesson-cancel-edit-button"
                     onClick={() => { 
                       setEditingLessonId(null); 
-                      setNewLesson({ title: '', content: '', videoUrl: '', pdfUrl: '', order: course.lessons.length + 1, quizQuestionCount: 0 }); 
+                      setNewLesson({ title: '', content: '', videoUrl: '', pdfUrl: '', order: course.lessons.length + 1, quizQuestionCount: 0, quizEasyQuestionCount: 0, quizMediumQuestionCount: 0, quizHardQuestionCount: 0 });
                       setLessonType('BOTH');
                     }} 
                     className="w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors text-xs uppercase tracking-wider cursor-pointer"
@@ -679,7 +705,7 @@ export default function CourseManager() {
                             )}
 
                             <span className="text-xs text-slate-400 font-medium">
-                              {lesson.questions?.length > 0 ? `${lesson.questions.length} questions` : 'Pas de quiz'}
+                              {lesson.questions?.length > 0 ? `${lesson.questions.length} questions · ${lesson.quizEasyQuestionCount || 0} faciles / ${lesson.quizMediumQuestionCount || 0} moyennes / ${lesson.quizHardQuestionCount || 0} difficiles` : 'Pas de quiz'}
                             </span>
                           </div>
                         </div>
@@ -719,6 +745,20 @@ export default function CourseManager() {
         {/* --- ONGLET 2: EXAMEN FINAL --- */}
         {activeTab === 'EXAM' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <form onSubmit={handleSaveExamQuestionCounts} className="lg:col-span-12 grid grid-cols-2 sm:grid-cols-5 gap-3 items-end rounded-2xl border border-amber-200 bg-amber-50 p-5">
+              {[
+                ['examEasyQuestionCount', 'Faciles', 'FACILE'],
+                ['examMediumQuestionCount', 'Moyennes', 'MOYEN'],
+                ['examHardQuestionCount', 'Difficiles', 'DIFFICILE']
+              ].map(([field, label, difficulty]) => (
+                <label key={field} className="text-xs font-black uppercase tracking-wide text-slate-600">
+                  {label} · Banque : {course.examQuestions?.filter(question => question.difficulty === difficulty).length || 0}
+                  <input type="number" min="0" value={examQuestionCounts[field]} onChange={event => setExamQuestionCounts({ ...examQuestionCounts, [field]: parseInt(event.target.value, 10) || 0 })} className="mt-1.5 w-full rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-900" />
+                </label>
+              ))}
+              <button type="submit" className="col-span-2 sm:col-span-2 rounded-lg bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-wide text-white hover:bg-[#EB0A1E]">Enregistrer la répartition</button>
+              <p className="col-span-2 sm:col-span-5 text-xs text-slate-600">L’examen tire au hasard exactement ces quantités dans la banque. Total à 0 : toutes les questions seront posées.</p>
+            </form>
             <div className="lg:col-span-5 bg-[#111827] p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-800 h-fit text-white">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-slate-800 text-white rounded-xl flex items-center justify-center">
@@ -734,6 +774,11 @@ export default function CourseManager() {
                   <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5">Intitulé de la question</label>
                   <input type="text" value={newExamQ.questionText} onChange={e => setNewExamQ({...newExamQ, questionText: e.target.value})} className="w-full px-4 py-3 bg-slate-800 border-none rounded-xl outline-none text-white focus:ring-2 focus:ring-slate-500 text-sm transition-all" placeholder="Ex: Que signifie TPS ?" required />
                 </div>
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-400">Difficulté
+                  <select value={newExamQ.difficulty} onChange={e => setNewExamQ({ ...newExamQ, difficulty: e.target.value })} className="mt-1.5 w-full rounded-xl bg-slate-800 px-4 py-3 text-sm text-white">
+                    <option value="FACILE">Facile</option><option value="MOYEN">Moyen</option><option value="DIFFICILE">Difficile</option>
+                  </select>
+                </label>
                 <div>
                   <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">Options & Bonne Réponse</label>
                   {newExamQ.options.map((opt, i) => (
@@ -771,9 +816,10 @@ export default function CourseManager() {
                         <Trash2 className="w-4 h-4" />
                       </button>
 
-                      <p className="font-bold text-slate-900 mb-3 pr-12 text-base flex items-start gap-2">
-                        <span className="text-slate-400">Q{i+1}.</span> {q.questionText}
-                      </p>
+                      <div className="mb-3 flex items-start justify-between gap-3 pr-12">
+                        <p className="font-bold text-slate-900 text-base"><span className="text-slate-400">Q{i+1}.</span> {q.questionText}</p>
+                        <span className="shrink-0 rounded-full bg-slate-200 px-2 py-1 text-[9px] font-black uppercase text-slate-700">{q.difficulty || 'MOYEN'}</span>
+                      </div>
                       <ul className="text-sm space-y-2">
                         {q.options.map((opt, optIdx) => (
                           <li key={optIdx} className={`flex items-start gap-2 p-2 rounded-lg border ${q.correctAnswer === optIdx ? 'bg-emerald-50 border-emerald-100 text-emerald-700 font-bold' : 'border-transparent text-slate-600'}`}>
@@ -931,6 +977,11 @@ export default function CourseManager() {
                     <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">Intitulé</label>
                     <input type="text" placeholder="La question..." value={newLessonQ.questionText} onChange={e => setNewLessonQ({...newLessonQ, questionText: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-200 text-sm font-semibold transition-all" required />
                   </div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">Difficulté
+                    <select value={newLessonQ.difficulty} onChange={e => setNewLessonQ({ ...newLessonQ, difficulty: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold">
+                      <option value="FACILE">Facile</option><option value="MOYEN">Moyen</option><option value="DIFFICILE">Difficile</option>
+                    </select>
+                  </label>
                   <div>
                     <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">Options & Réponse</label>
                     {newLessonQ.options.map((opt, i) => (
@@ -957,7 +1008,7 @@ export default function CourseManager() {
                       <button onClick={() => handleDeleteLessonQuestion(q.id)} className="absolute top-4 right-4 p-2 bg-white border border-slate-200 text-slate-400 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 hover:text-red-600 hover:border-red-100 cursor-pointer" title="Supprimer">
                         <Trash2 className="w-4 h-4" />
                       </button>
-                      <p className="font-bold text-slate-900 mb-3 pr-10 text-sm flex items-start gap-1.5"><span className="text-slate-400 shrink-0">Q{i+1}.</span> {q.questionText}</p>
+                      <div className="mb-3 flex items-start justify-between gap-2 pr-10"><p className="font-bold text-slate-900 text-sm"><span className="text-slate-400">Q{i+1}.</span> {q.questionText}</p><span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black uppercase text-slate-600">{q.difficulty || 'MOYEN'}</span></div>
                       <ul className="text-sm space-y-2">
                         {(q.options||[]).map((opt, optIdx) => (
                           <li key={optIdx} className={`flex items-start gap-2 p-1.5 rounded-lg border ${q.correctAnswer === optIdx ? 'bg-emerald-50 border-emerald-100 text-emerald-700 font-bold' : 'border-transparent text-slate-600'}`}>

@@ -1,0 +1,14 @@
+CREATE TYPE "QuestionDifficulty" AS ENUM ('FACILE', 'MOYEN', 'DIFFICILE');
+
+ALTER TABLE "Question"
+ADD COLUMN "difficulty" "QuestionDifficulty" NOT NULL DEFAULT 'MOYEN';
+
+ALTER TABLE "Lesson"
+ADD COLUMN "quizEasyQuestionCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "quizMediumQuestionCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "quizHardQuestionCount" INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE "Course"
+ADD COLUMN "examEasyQuestionCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "examMediumQuestionCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "examHardQuestionCount" INTEGER NOT NULL DEFAULT 0;

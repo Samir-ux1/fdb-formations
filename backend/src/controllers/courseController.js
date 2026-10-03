@@ -499,13 +499,24 @@ exports.resetStudent = async (req, res) => {
 exports.addExamQuestion = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
-    const { questionText, options, correctAnswer } = req.body;
+    const { questionText, options, correctAnswer, difficulty = 'MOYEN' } = req.body;
+    const course = await prisma.course.findUnique({ where: { id: courseId }, select: { instructorId: true } });
+    if (!course || (req.user.role !== 'ADMIN' && course.instructorId !== req.user.userId)) {
+      return res.status(403).json({ message: 'Accès refusé.' });
+    }
+    if (!['FACILE', 'MOYEN', 'DIFFICILE'].includes(difficulty)) {
+      return res.status(400).json({ message: 'Niveau de difficulté invalide.' });
+    }
+    if (!questionText?.trim() || !Array.isArray(options) || options.length < 2 || options.some(option => typeof option !== 'string' || !option.trim()) || !Number.isInteger(Number(correctAnswer)) || Number(correctAnswer) < 0 || Number(correctAnswer) >= options.length) {
+      return res.status(400).json({ message: 'Question, options et réponse correcte invalides.' });
+    }
 
     const newQuestion = await prisma.question.create({
       data: {
         questionText,
         options,
         correctAnswer: parseInt(correctAnswer),
+        difficulty,
         courseId
       }
     });
@@ -523,14 +534,13 @@ exports.deleteExamQuestion = async (req, res) => {
 
     // 1. Vérifier que c'est bien l'auteur du cours
     const course = await prisma.course.findUnique({ where: { id: courseId } });
-    if (!course || course.instructorId !== req.user.userId) {
+    if (!course || (req.user.role !== 'ADMIN' && course.instructorId !== req.user.userId)) {
       return res.status(403).json({ message: "Accès refusé." });
     }
 
-    // 2. Supprimer la question
-    await prisma.question.delete({
-      where: { id: questionId }
-    });
+    const question = await prisma.question.findFirst({ where: { id: questionId, courseId } });
+    if (!question) return res.status(404).json({ message: 'Question introuvable.' });
+    await prisma.question.delete({ where: { id: questionId } });
 
     res.status(200).json({ message: "Question supprimée avec succès." });
   } catch (error) {
@@ -577,6 +587,33 @@ exports.sendDeadlineReminder = async (req, res) => {
   } catch (error) {
     console.error('Erreur lors de la relance de la formation :', error);
     return res.status(500).json({ message: 'Impossible d’envoyer la relance.' });
+  }
+};
+
+exports.updateExamQuestionCounts = async (req, res) => {
+  try {
+    const courseId = Number.parseInt(req.params.courseId, 10);
+    const counts = ['examEasyQuestionCount', 'examMediumQuestionCount', 'examHardQuestionCount'];
+    const data = {};
+    for (const field of counts) {
+      const value = Number.parseInt(req.body[field], 10);
+      if (!Number.isInteger(value) || value < 0) {
+        return res.status(400).json({ message: 'Chaque nombre de questions doit être un entier positif ou nul.' });
+      }
+      data[field] = value;
+    }
+
+    const course = await prisma.course.findUnique({ where: { id: courseId }, select: { instructorId: true } });
+    if (!course || (req.user.role !== 'ADMIN' && course.instructorId !== req.user.userId)) {
+      return res.status(403).json({ message: 'Accès refusé.' });
+    }
+    const updated = await prisma.course.update({ where: { id: courseId }, data, select: {
+      examEasyQuestionCount: true, examMediumQuestionCount: true, examHardQuestionCount: true
+    } });
+    return res.status(200).json({ message: 'Répartition de l’examen enregistrée.', counts: updated });
+  } catch (error) {
+    console.error('Erreur de configuration de l’examen :', error);
+    return res.status(500).json({ message: 'Impossible d’enregistrer la répartition de l’examen.' });
   }
 };
 

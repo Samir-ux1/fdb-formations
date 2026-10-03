@@ -38,6 +38,12 @@ enum Role {
   ADMIN
 }
 
+enum QuestionDifficulty {
+  FACILE
+  MOYEN
+  DIFFICILE
+}
+
 // 2. Table Formations (Courses)
 model Course {
   id          Int      @id @default(autoincrement())
@@ -64,6 +70,9 @@ model Course {
   enrollments  Enrollment[]
 
   examQuestions Question[]   @relation("CourseExam")
+  examEasyQuestionCount Int @default(0)
+  examMediumQuestionCount Int @default(0)
+  examHardQuestionCount Int @default(0)
 
   // Relation avec la Branche (Catégorie)
   categoryId  Int?
@@ -80,6 +89,9 @@ model Lesson {
   order     Int      @default(0) // L'ordre de la leçon dans la formation
 
   quizQuestionCount Int @default(0)
+  quizEasyQuestionCount Int @default(0)
+  quizMediumQuestionCount Int @default(0)
+  quizHardQuestionCount Int @default(0)
   // Relation avec la formation
   courseId  Int
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -136,6 +148,7 @@ model Question {
   questionText  String
   options       String[] // Un tableau qui contiendra les choix (ex: ["A", "B", "C"])
   correctAnswer Int      // Le numéro de la bonne réponse (0 pour A, 1 pour B, etc.)
+  difficulty QuestionDifficulty @default(MOYEN)
 
   lessonId      Int?
   lesson        Lesson?   @relation("LessonQuiz", fields: [lessonId], references: [id], onDelete: Cascade)
