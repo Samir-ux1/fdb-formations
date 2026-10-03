@@ -3,7 +3,6 @@ const cors = require('cors');
 require('dotenv').config();
 const prisma = require('./src/config/prisma');
 const userRoutes = require('./src/routes/userRoutes');
-const startCronJobs = require('./src/cron/reminderJob');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
@@ -57,20 +56,19 @@ app.use(express.json()); // Permet de lire les données JSON (formulaires)
 const authRoutes = require('./src/routes/authRoutes');
 const courseRoutes = require('./src/routes/courseRoutes');
 const categoryRoutes = require('./src/routes/categoryRoutes'); 
+const cronRoutes = require('./src/routes/cronRoutes');
 
 // Utilisation des routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/cron', cronRoutes);
 
 // Route de test
 app.get('/', (req, res) => {
   res.json({ message: "🚀 Bienvenue sur l'API de la plateforme de formation !" });
 });
-
-// Démarre le robot des emails automatiques
-startCronJobs();
 
 // Démarrage du serveur
 const PORT = process.env.PORT || 5000;

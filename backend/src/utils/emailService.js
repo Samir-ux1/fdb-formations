@@ -38,31 +38,39 @@ exports.sendVerificationEmail = async (userEmail, userName, token) => {
   return await transporter.sendMail(mailOptions);
 };
 
-// Fonction pour le rappel des 2 jours restants
-exports.sendReminderEmail = async (userEmail, userName, courseTitle) => {
+const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, character => ({
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;'
+}[character]));
+
+// Rappel avant échéance ou relance après échéance.
+exports.sendReminderEmail = async (userEmail, userName, courseTitle, deadline, courseId, isOverdue = false) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://fdb-formations-4iqs-tau.vercel.app';
+  const courseUrl = `${frontendUrl.replace(/\/+$/, '')}/courses/${courseId}`;
+  const formattedDeadline = new Date(deadline).toLocaleDateString('fr-FR', {
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Casablanca'
+  });
+  const safeName = escapeHtml(userName || 'Technicien');
+  const safeTitle = escapeHtml(courseTitle || 'votre formation');
+  const subject = isOverdue
+    ? '⚠️ Votre formation a dépassé sa date limite'
+    : '⚠️ Il vous reste moins de 2 jours pour terminer votre formation';
+
   const mailOptions = {
     from: `"Toyota Formations" <${process.env.EMAIL_USER}>`,
     to: userEmail,
-    subject: '⚠️ Alerte : Plus que 2 jours pour valider votre formation !',
+    subject,
     html: `
-      <h2>Bonjour ${userName},</h2>
-      <p>Ceci est un rappel automatique. Il vous reste exactement <strong>2 jours</strong> pour terminer votre module <strong>"${courseTitle}"</strong> et passer l'examen final.</p>
-      <p>Ne tardez pas, passé ce délai, votre accès sera bloqué.</p>
-    `
-  };
-  await transporter.sendMail(mailOptions);
-};
-
-// Fonction quand la formation est expirée
-exports.sendExpiredEmail = async (userEmail, userName, courseTitle) => {
-  const mailOptions = {
-    from: '"Toyota Formations" <tonemail@gmail.com>',
-    to: userEmail,
-    subject: '❌ Temps écoulé pour votre formation',
-    html: `
-      <h2>Bonjour ${userName},</h2>
-      <p>Le délai imparti pour terminer le module <strong>"${courseTitle}"</strong> est dépassé.</p>
-      <p>Votre statut est désormais "En Échec". Veuillez contacter votre administrateur RH pour demander une seconde chance.</p>
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#111827">
+        <h2>Bonjour ${safeName},</h2>
+        ${isOverdue
+          ? `<p>La date limite de votre formation <strong>${safeTitle}</strong> est dépassée depuis le <strong>${formattedDeadline}</strong>.</p><p>Votre formation reste accessible. Contactez votre formateur pour convenir de la suite.</p>`
+          : `<p>La date limite de votre formation <strong>${safeTitle}</strong> approche : <strong>${formattedDeadline}</strong>. Il vous reste moins de 48 heures pour terminer les chapitres et passer l’évaluation.</p>`}
+        <p><a href="${courseUrl}" style="display:inline-block;padding:12px 20px;background:#EB0A1E;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold">Reprendre la formation</a></p>
+      </div>
     `
   };
   await transporter.sendMail(mailOptions);

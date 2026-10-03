@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const emailService = require('../utils/emailService');
 
 exports.createCourse = async (req, res) => {
   console.log("👉 Création du cours demandée :", req.body.title);
@@ -395,6 +396,7 @@ exports.getCourseStudents = async (req, res) => {
     const enrollments = await prisma.enrollment.findMany({
       where: { courseId },
       include: {
+        course: { select: { title: true, timeLimitDays: true } },
         user: { 
           select: { 
             id: true, name: true, email: true, avatarUrl: true,
@@ -409,7 +411,11 @@ exports.getCourseStudents = async (req, res) => {
         }
       }
     });
-    res.status(200).json(enrollments);
+    res.status(200).json(enrollments.map(enrollment => ({
+      ...enrollment,
+      courseTitle: enrollment.course.title,
+      timeLimitDays: enrollment.course.timeLimitDays
+    })));
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur.", error: error.message });
   }
@@ -469,7 +475,7 @@ exports.resetStudent = async (req, res) => {
     // 1. Remettre l'inscription à zéro
     await prisma.enrollment.update({
       where: { userId_courseId: { userId: studentId, courseId } },
-      data: { status: 'IN_PROGRESS', quizScore: null, examScore: null, finalGrade: null, isValidated: false, completedAt: null, learningTimeSeconds: 0 }
+      data: { status: 'IN_PROGRESS', createdAt: new Date(), quizScore: null, examScore: null, finalGrade: null, isValidated: false, completedAt: null, learningTimeSeconds: 0, reminderSentAt: null }
     });
 
     // 2. Trouver toutes les leçons de ce cours
@@ -532,6 +538,48 @@ exports.deleteExamQuestion = async (req, res) => {
   }
 };
 
+exports.sendDeadlineReminder = async (req, res) => {
+  try {
+    const courseId = Number.parseInt(req.params.courseId, 10);
+    const studentId = Number.parseInt(req.params.studentId, 10);
+    if (!Number.isInteger(courseId) || !Number.isInteger(studentId)) {
+      return res.status(400).json({ message: 'Identifiants invalides.' });
+    }
+
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId: studentId, courseId } },
+      include: {
+        user: { select: { name: true, email: true } },
+        course: { select: { id: true, title: true, timeLimitDays: true, instructorId: true } }
+      }
+    });
+    if (!enrollment) return res.status(404).json({ message: 'Inscription introuvable.' });
+    if (req.user.role !== 'ADMIN' && enrollment.course.instructorId !== req.user.userId) {
+      return res.status(403).json({ message: 'Accès refusé.' });
+    }
+    if (enrollment.status !== 'IN_PROGRESS') {
+      return res.status(400).json({ message: 'Seules les formations en cours peuvent être relancées.' });
+    }
+    if (!enrollment.course.timeLimitDays) {
+      return res.status(400).json({ message: 'Aucun délai n’est défini pour cette formation.' });
+    }
+
+    const deadline = new Date(enrollment.createdAt.getTime() + enrollment.course.timeLimitDays * 86400000);
+    await emailService.sendReminderEmail(
+      enrollment.user.email,
+      enrollment.user.name,
+      enrollment.course.title,
+      deadline,
+      courseId,
+      deadline <= new Date()
+    );
+    return res.status(200).json({ message: `Email de relance envoyé à ${enrollment.user.email}.` });
+  } catch (error) {
+    console.error('Erreur lors de la relance de la formation :', error);
+    return res.status(500).json({ message: 'Impossible d’envoyer la relance.' });
+  }
+};
+
 // --- FORCER LA VALIDATION OU L'ÉCHEC MANUELLEMENT ---
 exports.overrideStudentStatus = async (req, res) => {
   try {
@@ -543,7 +591,8 @@ exports.overrideStudentStatus = async (req, res) => {
       where: { userId_courseId: { userId: studentId, courseId } },
       data: { 
         status: status,
-        isValidated: status === 'VALIDATED'
+        isValidated: status === 'VALIDATED',
+        completedAt: new Date()
       }
     });
     res.status(200).json({ message: "Le statut de l'étudiant a été forcé manuellement." });

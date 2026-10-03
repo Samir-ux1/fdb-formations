@@ -96,6 +96,7 @@ model Enrollment {
   status      String    @default("IN_PROGRESS") // "IN_PROGRESS", "VALIDATED", "FAILED"
   completedAt DateTime? // La date de fin (pour calculer la durée)
   learningTimeSeconds Int @default(0)
+  reminderSentAt DateTime?
 
   userId    Int
   user      User     @relation(fields: [userId], references: [id])

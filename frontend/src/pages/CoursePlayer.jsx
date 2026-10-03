@@ -88,8 +88,8 @@ export default function CoursePlayer() {
   const [activeMediaTab, setActiveMediaTab] = useState('VIDEO');
   
   // États Temps imparti
-  const [isExpired, setIsExpired] = useState(false);
   const [deadlineDate, setDeadlineDate] = useState(null);
+  const [deadlineDaysRemaining, setDeadlineDaysRemaining] = useState(null);
 
   // --- NOUVEAUX ÉTATS DU QUIZ ---
   const [activeQuizQuestions, setActiveQuizQuestions] = useState([]); // Questions tirées au sort
@@ -111,7 +111,7 @@ export default function CoursePlayer() {
       const activeToken = token || localStorage.getItem('token');
       if (!activeToken) return navigate('/login'); 
 
-      const response = await axios.get(`https://fdb-formations.vercel.app/api/courses/${courseId}`, {
+      const response = await axios.get(`${API_URL}/courses/${courseId}`, {
         headers: { Authorization: `Bearer ${activeToken}` }
       });
       
@@ -134,7 +134,14 @@ export default function CoursePlayer() {
         const deadline = new Date(startDate.getTime() + response.data.timeLimitDays * 24 * 60 * 60 * 1000);
         const now = new Date();
         setDeadlineDate(deadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }));
-        if (now > deadline && response.data.enrollment.status === 'IN_PROGRESS') setIsExpired(true);
+        if (response.data.enrollment.status === 'IN_PROGRESS') {
+          setDeadlineDaysRemaining(Math.ceil((deadline.getTime() - now.getTime()) / 86400000));
+        } else {
+          setDeadlineDaysRemaining(null);
+        }
+      } else {
+        setDeadlineDate(null);
+        setDeadlineDaysRemaining(null);
       }
   
       const savedPlayback = getSavedPlayback(courseId);
@@ -388,19 +395,6 @@ export default function CoursePlayer() {
     </div>
   );
 
-  if (isExpired) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center p-6">
-        <div className="bg-white p-10 rounded-sm border-t-4 border-red-600 shadow-xl max-w-md text-center">
-          <div className="text-6xl mb-6">⏳</div>
-          <h2 className="text-2xl font-black text-slate-900 uppercase mb-2">Temps imparti écoulé</h2>
-          <p className="text-slate-600 mb-6">Vous aviez {course.timeLimitDays} jours pour terminer. Ce délai est dépassé.</p>
-          <Link to="/dashboard" className="px-6 py-3 bg-[#111827] text-white font-bold rounded-sm uppercase text-xs hover:bg-[#EB0A1E] transition-colors">Retour au Dashboard</Link>
-        </div>
-      </div>
-    );
-  }
-
   const completedLessons = course.lessons.filter(l => l.progresses && l.progresses.length > 0).length;
   const progressPercentage = course.lessons.length === 0 ? 0 : Math.round((completedLessons / course.lessons.length) * 100);
   
@@ -424,12 +418,22 @@ export default function CoursePlayer() {
           <h1 className="font-bold text-sm sm:text-lg line-clamp-1 border-l-2 border-[#EB0A1E] pl-2 sm:pl-4 uppercase tracking-tight">{course.title}</h1>
         </div>
         <div className="hidden md:flex items-center gap-4">
-          {deadlineDate && !validationResult && <span className="text-xs font-bold text-[#EB0A1E] px-3 py-1 bg-red-50 border border-red-100 uppercase tracking-widest rounded-sm">⏳ Avant le {deadlineDate}</span>}
+          {deadlineDate && deadlineDaysRemaining !== null && deadlineDaysRemaining > 2 && !validationResult && <span className="text-xs font-bold text-slate-600 px-3 py-1 bg-slate-50 border border-slate-200 rounded-sm">Échéance : {deadlineDate}</span>}
           
         </div>
       </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8 items-start">
+
+        {deadlineDaysRemaining !== null && deadlineDaysRemaining <= 2 && !validationResult && (
+          <div role="alert" className={`lg:col-span-12 flex items-start gap-3 rounded-xl border p-4 ${deadlineDaysRemaining <= 0 ? 'border-red-200 bg-red-50 text-red-900' : 'border-amber-200 bg-amber-50 text-amber-950'}`}>
+            <span className="text-lg" aria-hidden="true">⏳</span>
+            <div>
+              <p className="font-bold">{deadlineDaysRemaining <= 0 ? 'Le délai de cette formation est dépassé.' : `Il vous reste ${Math.max(1, deadlineDaysRemaining)} jour${deadlineDaysRemaining > 1 ? 's' : ''} pour terminer cette formation.`}</p>
+              <p className="mt-1 text-sm">{deadlineDaysRemaining <= 0 ? 'La formation reste accessible. Contactez votre formateur pour convenir de la suite.' : `Échéance : ${deadlineDate}. Pensez à terminer les chapitres et à passer l’évaluation.`}</p>
+            </div>
+          </div>
+        )}
         
         <div className="lg:col-span-8 space-y-6">
           

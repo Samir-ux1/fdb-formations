@@ -38,5 +38,6 @@ router.get('/:courseId/students', verifyToken, isInstructor, courseController.ge
 router.put('/:courseId/students/:studentId/field-grade', verifyToken, isInstructor, courseController.updateFieldGrade);
 router.post('/:courseId/students/:studentId/reset', verifyToken, isInstructor, courseController.resetStudent);
 router.post('/:courseId/students/:studentId/status', verifyToken, isInstructor, courseController.overrideStudentStatus);
+router.post('/:courseId/students/:studentId/remind', verifyToken, isInstructor, courseController.sendDeadlineReminder);
 // CETTE LIGNE DOIT TOUJOURS ÊTRE LA TOUTE DERNIÈRE !
 module.exports = router;

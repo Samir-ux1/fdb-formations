@@ -194,12 +194,14 @@ export default function InstructorPortal() {
   // --- LOGIQUE RH (FILTRES ET KPI) SÉCURISÉE ---
   // ========================================================
 
-  // 1. Fonction pour savoir si un technicien est en retard
-  const isLate = (enrollment) => {
-    if (enrollment?.status !== 'IN_PROGRESS' || !enrollment?.timeLimitDays) return false;
-    const deadline = new Date(new Date(enrollment.createdAt).getTime() + enrollment.timeLimitDays * 24 * 60 * 60 * 1000);
-    return new Date() > deadline;
+  const getDeadlineInfo = (enrollment) => {
+    if (enrollment?.status !== 'IN_PROGRESS' || !enrollment?.timeLimitDays || !enrollment?.createdAt) return null;
+    const deadline = new Date(new Date(enrollment.createdAt).getTime() + enrollment.timeLimitDays * 86400000);
+    const remainingMs = deadline.getTime() - Date.now();
+    return { deadline, isLate: remainingMs <= 0, isDueSoon: remainingMs > 0 && remainingMs <= 2 * 86400000, daysRemaining: Math.max(1, Math.ceil(remainingMs / 86400000)) };
   };
+  const isLate = (enrollment) => Boolean(getDeadlineInfo(enrollment)?.isLate);
+  const isDueSoon = (enrollment) => Boolean(getDeadlineInfo(enrollment)?.isDueSoon);
 
   // 2. Application des filtres (Sécurisé avec ?.)
   const filteredStudents = allStudents.filter(enrollment => {
@@ -211,6 +213,7 @@ export default function InstructorPortal() {
     
     let matchStatus = true;
     if (statusFilter === 'LATE') matchStatus = isLate(enrollment);
+    else if (statusFilter === 'DUE_SOON') matchStatus = isDueSoon(enrollment);
     else if (statusFilter !== 'ALL') matchStatus = enrollment?.status === statusFilter;
 
     const matchSector = sectorFilter === 'ALL' || enrollment?.user?.sector === sectorFilter;
@@ -223,6 +226,7 @@ export default function InstructorPortal() {
   const countValidated = allStudents.filter(e => e?.status === 'VALIDATED').length;
   const countFailed = allStudents.filter(e => e?.status === 'FAILED').length;
   const countLate = allStudents.filter(e => isLate(e)).length;
+  const countDueSoon = allStudents.filter(e => isDueSoon(e)).length;
   const countInProgress = allStudents.filter(e => e?.status === 'IN_PROGRESS' && !isLate(e)).length;
 
   const pctValidated = kpiTotal > 0 ? Math.round((countValidated / kpiTotal) * 100) : 0;
@@ -240,7 +244,7 @@ export default function InstructorPortal() {
       const email = e?.user?.email || "N/A";
       const secteur = e?.user?.sector || "Non assigné";
       const cours = e?.courseTitle || "Inconnu";
-      const statut = isLate(e) ? "EN RETARD" : (e?.status || "N/A");
+      const statut = isLate(e) ? "EN RETARD" : isDueSoon(e) ? `ÉCHÉANCE J-${getDeadlineInfo(e).daysRemaining}` : (e?.status || "N/A");
       const note = e?.finalGrade !== null && e?.finalGrade !== undefined ? `${e.finalGrade}/20` : "N/A";
       const date = e?.createdAt ? new Date(e.createdAt).toLocaleDateString('fr-FR') : "N/A";
       
@@ -257,8 +261,19 @@ export default function InstructorPortal() {
   };
 
   // 5. Fonction Relancer
-  const handleRemindStudent = (name) => {
-    toast.success(`Un email de relance automatique a été simulé pour ${name} ! 📧`);
+  const handleRemindStudent = async (enrollment) => {
+    const courseId = enrollment?.courseId;
+    const studentId = enrollment?.user?.id ?? enrollment?.userId;
+    if (!courseId || !studentId) return toast.error('Impossible de trouver le cours ou le technicien.');
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_URL}/courses/${courseId}/students/${studentId}/remind`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success(response.data.message || 'Email de relance envoyé.');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Échec de l’envoi de la relance.');
+    }
   };
 
   // 6. Modifier le secteur d'un étudiant depuis la liste
@@ -326,8 +341,12 @@ export default function InstructorPortal() {
   
   const renderStudentCard = (enrollment, index) => {
     const late = isLate(enrollment);
+    const dueSoon = isDueSoon(enrollment);
+    const deadlineInfo = getDeadlineInfo(enrollment);
     const statusLabel = late
       ? 'Hors délai'
+      : dueSoon
+        ? `Échéance dans ${deadlineInfo.daysRemaining} j`
       : enrollment?.status === 'IN_PROGRESS'
         ? 'En cours'
         : enrollment?.status === 'VALIDATED'
@@ -335,6 +354,8 @@ export default function InstructorPortal() {
           : 'Échec';
     const statusClass = late
       ? 'bg-red-50 text-red-700'
+      : dueSoon
+        ? 'bg-amber-50 text-amber-800'
       : enrollment?.status === 'IN_PROGRESS'
         ? 'bg-blue-50 text-blue-700'
         : enrollment?.status === 'VALIDATED'
@@ -376,10 +397,10 @@ export default function InstructorPortal() {
           </div>
         </dl>
 
-        {late && (
+        {(late || dueSoon) && (
           <button
             type="button"
-            onClick={() => handleRemindStudent(enrollment?.user?.name)}
+            onClick={() => handleRemindStudent(enrollment)}
             className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-xs font-bold text-white hover:bg-[#EB0A1E] sm:w-auto"
           >
             <Bell className="h-4 w-4" /> Relancer
@@ -718,6 +739,7 @@ export default function InstructorPortal() {
                     <option value="ALL">Tous les statuts</option>
                     <option value="VALIDATED">Certifiés uniquement</option>
                     <option value="IN_PROGRESS">En cours</option>
+                    <option value="DUE_SOON">⏳ Échéance sous 2 jours</option>
                     <option value="LATE">⚠️ En Retard</option>
                     <option value="FAILED">Échecs</option>
                   </select>
@@ -733,6 +755,13 @@ export default function InstructorPortal() {
                 </div>
 
               </div>
+
+              {countDueSoon > 0 && (
+                <div role="status" className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                  <p className="text-sm font-semibold">{countDueSoon} inscription{countDueSoon > 1 ? 's arrivent' : ' arrive'} à échéance dans les prochaines 48 heures.</p>
+                </div>
+              )}
 
               {/* LE GRAND TABLEAU */}
               <div className="bg-white rounded-sm shadow-sm border border-slate-200 overflow-hidden">
@@ -759,6 +788,8 @@ export default function InstructorPortal() {
                       ) : (
                         filteredStudents.map((enrollment, index) => {
                           const retard = isLate(enrollment);
+                          const dueSoon = isDueSoon(enrollment);
+                          const deadlineInfo = getDeadlineInfo(enrollment);
                           return (
                           <tr key={enrollment?.id || index} className="hover:bg-slate-50 transition-colors">
                             <td className="px-6 py-4 flex items-center gap-3">
@@ -784,6 +815,8 @@ export default function InstructorPortal() {
                             <td className="px-6 py-4">
                               {retard ? (
                                 <span className="px-2.5 py-1 bg-red-100 text-[#EB0A1E] font-black text-[9px] uppercase tracking-wider rounded-sm border border-red-200 flex items-center gap-1 w-max"><AlertTriangle className="w-3 h-3" /> Hors délai</span>
+                              ) : dueSoon ? (
+                                <span className="px-2.5 py-1 bg-amber-50 text-amber-800 font-black text-[9px] uppercase tracking-wider rounded-sm border border-amber-200 flex items-center gap-1 w-max"><Clock className="w-3 h-3" /> Échéance dans {deadlineInfo.daysRemaining} j</span>
                               ) : enrollment?.status === 'IN_PROGRESS' ? (
                                 <span className="px-2.5 py-1 bg-blue-50 text-blue-700 font-bold text-[9px] uppercase tracking-wider rounded-sm border border-blue-200 flex items-center gap-1 w-max"><Clock className="w-3 h-3" /> En cours</span>
                               ) : enrollment?.status === 'VALIDATED' ? (
@@ -802,8 +835,8 @@ export default function InstructorPortal() {
                               )}
                             </td>
                             <td className="px-6 py-4 text-right">
-                              {retard && (
-                                <button onClick={() => handleRemindStudent(enrollment?.user?.name)} className="px-3 py-1.5 bg-[#111827] text-white font-bold text-[10px] uppercase tracking-widest rounded-sm hover:bg-[#EB0A1E] transition-colors flex items-center gap-1.5 ml-auto">
+                              {(retard || dueSoon) && (
+                                <button onClick={() => handleRemindStudent(enrollment)} className="px-3 py-1.5 bg-[#111827] text-white font-bold text-[10px] uppercase tracking-widest rounded-sm hover:bg-[#EB0A1E] transition-colors flex items-center gap-1.5 ml-auto">
                                   <Bell className="w-3 h-3" /> Relancer
                                 </button>
                               )}
