@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -26,6 +26,25 @@ const getPdfDisplayUrl = (url) => {
   return url.endsWith('.pdf') ? `${url}#toolbar=0` : url;
 };
 
+const getPlaybackStorageKey = (courseId) => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    return user?.id ? `course-playback:${user.id}:${courseId}` : null;
+  } catch {
+    return null;
+  }
+};
+
+const getSavedPlayback = (courseId) => {
+  const key = getPlaybackStorageKey(courseId);
+  if (!key) return null;
+  try {
+    return JSON.parse(localStorage.getItem(key) || 'null');
+  } catch {
+    return null;
+  }
+};
+
 export default function CoursePlayer() {
   const { courseId } = useParams();
   const navigate = useNavigate();
@@ -34,6 +53,35 @@ export default function CoursePlayer() {
   const [course, setCourse] = useState(null);
   const [currentLesson, setCurrentLesson] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const youtubePlayerRef = useRef(null);
+  const resumePositionRef = useRef(0);
+  const lastSavedPositionRef = useRef({ lessonId: null, seconds: -5 });
+
+  const savePlaybackPosition = (lessonId, currentTime) => {
+    const key = getPlaybackStorageKey(courseId);
+    if (!key || !lessonId) return;
+
+    const seconds = Math.max(0, Math.floor(Number(currentTime) || 0));
+    const previous = lastSavedPositionRef.current;
+    if (previous.lessonId === lessonId && Math.abs(seconds - previous.seconds) < 3) return;
+
+    lastSavedPositionRef.current = { lessonId, seconds };
+    resumePositionRef.current = seconds;
+    localStorage.setItem(key, JSON.stringify({ lessonId, positionSeconds: seconds }));
+  };
+
+  const selectLesson = (lesson, positionSeconds = 0) => {
+    if (!lesson) return;
+    youtubePlayerRef.current = null;
+    resumePositionRef.current = Math.max(0, Number(positionSeconds) || 0);
+    lastSavedPositionRef.current = { lessonId: lesson.id, seconds: Math.floor(resumePositionRef.current) - 5 };
+    setCurrentLesson(lesson);
+    savePlaybackPosition(lesson.id, resumePositionRef.current);
+  };
+
+  const persistCurrentPosition = (currentTime) => {
+    if (currentLesson) savePlaybackPosition(currentLesson.id, currentTime);
+  };
 
   // État de la vidéo
   const [isVideoFinished, setIsVideoFinished] = useState(false);
@@ -89,11 +137,16 @@ export default function CoursePlayer() {
         if (now > deadline && response.data.enrollment.status === 'IN_PROGRESS') setIsExpired(true);
       }
   
-      if (!currentLesson && response.data.lessons.length > 0) {
-        setCurrentLesson(response.data.lessons[0]);
+      const savedPlayback = getSavedPlayback(courseId);
+      const restoredLesson = response.data.lessons.find(lesson => lesson.id === savedPlayback?.lessonId);
+      const currentLessonStillExists = response.data.lessons.some(lesson => lesson.id === currentLesson?.id);
+
+      if (!currentLessonStillExists && response.data.lessons.length > 0) {
+        const lessonToRestore = restoredLesson || response.data.lessons[0];
+        selectLesson(lessonToRestore, restoredLesson ? savedPlayback.positionSeconds : 0);
       } else if (currentLesson) {
         const updatedLesson = response.data.lessons.find(l => l.id === currentLesson.id);
-        setCurrentLesson(updatedLesson);
+        if (updatedLesson) setCurrentLesson(updatedLesson);
       }
     } catch (err) {
       if (err.response?.status === 403) {
@@ -109,6 +162,22 @@ export default function CoursePlayer() {
     fetchCourseData();
     if (courseId) localStorage.setItem('lastCourseId', courseId);
   }, [courseId]);
+
+  // Sauvegarde périodiquement la position YouTube pendant la lecture.
+  useEffect(() => {
+    if (!getYouTubeId(currentLesson?.videoUrl?.trim())) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      const player = youtubePlayerRef.current;
+      try {
+        if (player?.getPlayerState() === 1) persistCurrentPosition(player.getCurrentTime());
+      } catch {
+        // Le lecteur peut être en cours d'initialisation ou de démontage.
+      }
+    }, 3000);
+
+    return () => window.clearInterval(intervalId);
+  }, [currentLesson?.id, currentLesson?.videoUrl]);
 
   // Enregistre le temps où la formation est réellement affichée au premier plan.
   useEffect(() => {
@@ -246,7 +315,7 @@ export default function CoursePlayer() {
     const isCompleted = currentLesson?.progresses?.length > 0;
     if (!isCompleted) toggleComplete(currentLesson.id, 20); 
     
-    if (nextLesson) setTimeout(() => setCurrentLesson(nextLesson), 2000); 
+    if (nextLesson) setTimeout(() => selectLesson(nextLesson), 2000); 
   };
 
   // 4. ACTIONS DU QUIZ
@@ -486,6 +555,17 @@ export default function CoursePlayer() {
         <YouTube
           videoId={getYouTubeId(currentLesson.videoUrl.trim())}
           opts={{ width: '100%', height: '100%', playerVars: { rel: 0, autoplay: 1 } }}
+          onReady={(event) => {
+            youtubePlayerRef.current = event.target;
+            if (resumePositionRef.current > 0) {
+              event.target.seekTo(resumePositionRef.current, true);
+            }
+          }}
+          onStateChange={(event) => {
+            if (event.data === 0 || event.data === 2) {
+              persistCurrentPosition(event.target.getCurrentTime());
+            }
+          }}
           onEnd={handleVideoEnd}
           className="absolute top-0 left-0 w-full h-full [&>iframe]:w-full [&>iframe]:h-full"
         />
@@ -494,6 +574,14 @@ export default function CoursePlayer() {
           className="absolute top-0 left-0 w-full h-full"
           controls
           src={currentLesson.videoUrl.trim()}
+          onLoadedMetadata={(event) => {
+            const video = event.currentTarget;
+            const resumeAt = resumePositionRef.current;
+            if (resumeAt > 0 && resumeAt < video.duration) video.currentTime = resumeAt;
+          }}
+          onTimeUpdate={(event) => persistCurrentPosition(event.currentTarget.currentTime)}
+          onPause={(event) => persistCurrentPosition(event.currentTarget.currentTime)}
+          onSeeked={(event) => persistCurrentPosition(event.currentTarget.currentTime)}
           onEnded={handleVideoEnd}
         />
       )
@@ -638,10 +726,10 @@ export default function CoursePlayer() {
 
                 {/* BOUTONS PRÉCÉDENT / SUIVANT */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-6 mt-8 border-t border-slate-100">
-                  <button onClick={() => setCurrentLesson(prevLesson)} disabled={!prevLesson} className={`w-full sm:w-auto justify-center px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 ${prevLesson ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-transparent text-slate-300 cursor-not-allowed'}`}>
+                  <button onClick={() => selectLesson(prevLesson)} disabled={!prevLesson} className={`w-full sm:w-auto justify-center px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 ${prevLesson ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-transparent text-slate-300 cursor-not-allowed'}`}>
                     <ArrowLeft className="w-4 h-4" /> Précédent
                   </button>
-                  <button onClick={() => setCurrentLesson(nextLesson)} disabled={!nextLesson || !isCompleted} className={`w-full sm:w-auto justify-center px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 ${(nextLesson && isCompleted) ? 'bg-red-50 text-[#EB0A1E] hover:bg-red-100' : 'bg-transparent text-slate-300 cursor-not-allowed'}`}>
+                  <button onClick={() => selectLesson(nextLesson)} disabled={!nextLesson || !isCompleted} className={`w-full sm:w-auto justify-center px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 ${(nextLesson && isCompleted) ? 'bg-red-50 text-[#EB0A1E] hover:bg-red-100' : 'bg-transparent text-slate-300 cursor-not-allowed'}`}>
                     Suivant <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -673,7 +761,7 @@ export default function CoursePlayer() {
                 return (
                   <button
                     key={lesson.id}
-                    onClick={() => !isLocked && setCurrentLesson(lesson)}
+                    onClick={() => !isLocked && selectLesson(lesson)}
                     disabled={isLocked}
                     className={`w-full text-left p-4 flex items-center gap-3 transition-colors border-b border-slate-50 last:border-0
                       ${isActive ? 'bg-red-50/50 border-l-4 border-l-[#EB0A1E]' : 'border-l-4 border-l-transparent'}
